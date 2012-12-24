@@ -2,8 +2,8 @@
 
 This Python package implements the software described in
 
-    Kruschke, John. (2012) Bayesian estimation supersedes the t
-    test. Journal of Experimental Psychology: General.
+> Kruschke, John. (2012) Bayesian estimation supersedes the t
+> test. Journal of Experimental Psychology: General.
 
 It implements Bayesian estimation for two groups, providing complete
 distributions for effect size, group means and their difference,
