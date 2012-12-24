@@ -12,3 +12,7 @@ data. See John Kruschke's [website on
 BEST](http://www.indiana.edu/~kruschke/BEST/) for more information.
 
 This software is based on [PyMC](https://github.com/pymc-devs/pymc).
+
+Here is the plot created by `examples/smart_drug.py`:
+
+![smart_drug.png](http://strawlab.org/assets/smart_drug.png)
