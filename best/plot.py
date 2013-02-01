@@ -202,7 +202,7 @@ def make_figure(M):
     plot_posterior( effect_size, bins=n_bins, ax=ax10,
                     title='Effect Size',
                     draw_zero=True,
-                    label=r'$(\mu_1 - \mu_2)/\sqrt{(\sigma_1 - \sigma_2)/2}$')
+                    label=r'$(\mu_1 - \mu_2)/\sqrt{(\sigma_1 + \sigma_2)/2}$')
 
     orig_vals = np.concatenate( (M.group1.value, M.group2.value) )
     bin_edges = np.linspace( np.min(orig_vals), np.max(orig_vals), 30 )
