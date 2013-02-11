@@ -19,7 +19,7 @@ from pymc.distributions import noncentral_t_like
 pretty_blue = '#89d1ea'
 
 def plot_posterior( sample_vec, bins=None, ax=None, title=None, stat='mode',
-                        label='', draw_zero=False ):
+                    label='', draw_zero=False ):
 
     hdi_min, hdi_max = hdi_of_mcmc( sample_vec )
 
@@ -48,8 +48,12 @@ def plot_posterior( sample_vec, bins=None, ax=None, title=None, stat='mode',
         raise ValueError('unknown stat %s'%stat)
 
     if ax is not None:
-        ax.hist( sample_vec, bins=bins, rwidth=0.8,
-                 facecolor=pretty_blue, edgecolor='none' )
+        if bins is not None:
+            kwargs = {'bins':bins}
+        else:
+            kwargs = {}
+        ax.hist( sample_vec, rwidth=0.8,
+                 facecolor=pretty_blue, edgecolor='none', **kwargs )
         if title is not None:
             ax.set_title( title )
 
