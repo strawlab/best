@@ -11,9 +11,13 @@ standard deviations and their difference, and the normality of the
 data. See John Kruschke's [website on
 BEST](http://www.indiana.edu/~kruschke/BEST/) for more information.
 
-The MCMC sampling is done with
-[PyMC](https://github.com/pymc-devs/pymc) and
-[matplotlib](http://matplotlib.org) is used to do the plotting.
+## Requirements ##
+
+ * tested with Python 2.7 (not Python 3)
+ * [PyMC](https://github.com/pymc-devs/pymc) for MCMC sampling
+ * [matplotlib](http://matplotlib.org) for plotting
+
+## Example ##
 
 Here is the plot created by `examples/smart_drug.py`:
 
