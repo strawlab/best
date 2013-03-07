@@ -14,6 +14,7 @@ Kruschke, J. (2012) Bayesian estimation supersedes the t
 from __future__ import division
 from pymc import Uniform, Normal, Exponential, NoncentralT, deterministic, Model
 import numpy as np
+import scipy.stats
 
 def make_model(data):
     assert len(data)==2, 'There must be exactly two data arrays'
@@ -63,6 +64,7 @@ def make_model(data):
                   })
 
 def hdi_of_mcmc( sample_vec, cred_mass = 0.95 ):
+    assert len(sample_vec), 'need points to find HDI'
     sorted_pts = np.sort( sample_vec )
 
     ci_idx_inc = int(np.floor( cred_mass*len(sorted_pts) ))
@@ -73,3 +75,29 @@ def hdi_of_mcmc( sample_vec, cred_mass = 0.95 ):
     hdi_min = sorted_pts[min_idx]
     hdi_max = sorted_pts[min_idx+ci_idx_inc]
     return hdi_min, hdi_max
+
+def calculate_sample_statistics( sample_vec ):
+
+    hdi_min, hdi_max = hdi_of_mcmc( sample_vec )
+
+    # calculate mean
+    mean_val = np.mean(sample_vec)
+
+    # calculate mode (use kernel density estimate)
+    kernel = scipy.stats.gaussian_kde( sample_vec )
+    if 1:
+        # (Could we use the mean shift algorithm instead of this?)
+        bw = kernel.covariance_factor()
+        cut = 3*bw
+        xlow = np.min(sample_vec) - cut*bw
+        xhigh = np.max(sample_vec) + cut*bw
+        n = 512
+        x = np.linspace(xlow,xhigh,n)
+        vals = kernel.evaluate(x)
+        max_idx = np.argmax(vals)
+        mode_val = x[max_idx]
+    return {'hdi_min':hdi_min,
+            'hdi_max':hdi_max,
+            'mean':mean_val,
+            'mode':mode_val,
+            }

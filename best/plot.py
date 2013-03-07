@@ -7,13 +7,12 @@ Kruschke, J. (2012) Bayesian estimation supersedes the t
 """
 from __future__ import division
 import numpy as np
-from best import hdi_of_mcmc
+from best import calculate_sample_statistics
 
 import matplotlib.pyplot as plt
 from matplotlib.transforms import blended_transform_factory
 import matplotlib.lines as mpllines
 import matplotlib.ticker as mticker
-import scipy.stats
 from pymc.distributions import noncentral_t_like
 
 pretty_blue = '#89d1ea'
@@ -21,31 +20,10 @@ pretty_blue = '#89d1ea'
 def plot_posterior( sample_vec, bins=None, ax=None, title=None, stat='mode',
                     label='', draw_zero=False ):
 
-    hdi_min, hdi_max = hdi_of_mcmc( sample_vec )
-
-    # calculate mean
-    mean_val = np.mean(sample_vec)
-
-    # calculate mode (use kernel density estimate)
-    kernel = scipy.stats.gaussian_kde( sample_vec )
-    if 1:
-        # (Could we use the mean shift algorithm instead of this?)
-        bw = kernel.covariance_factor()
-        cut = 3*bw
-        xlow = np.min(sample_vec) - cut*bw
-        xhigh = np.max(sample_vec) + cut*bw
-        n = 512
-        x = np.linspace(xlow,xhigh,n)
-        vals = kernel.evaluate(x)
-        max_idx = np.argmax(vals)
-        mode_val = x[max_idx]
-
-    if stat=='mean':
-        stat_val = mean_val
-    elif stat=='mode':
-        stat_val = mode_val
-    else:
-        raise ValueError('unknown stat %s'%stat)
+    stats = calculate_sample_statistics( sample_vec )
+    stat_val = stats[stat]
+    hdi_min = stats['hdi_min']
+    hdi_max = stats['hdi_max']
 
     if ax is not None:
         if bins is not None:
