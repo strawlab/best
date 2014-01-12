@@ -6,5 +6,5 @@ setup(name='best',
       url='https://github.com/strawlab/best',
       version='1.0',
       packages=['best'],
-      license='BSD',
+      license='MIT',
       )
