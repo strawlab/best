@@ -117,9 +117,8 @@ def plot_data_and_prediction( data, means, stds, numos, ax=None, bins=None,
     ax.yaxis.set_major_locator( mticker.MaxNLocator(nbins=4) )
     ax.set_title('Data Group %s w. Post. Pred.'%(group,))
 
-def make_figure(M):
+def make_figure(M, n_bins=30, group1_name='Group 1', group2_name='Group 2'):
     # plotting stuff
-    n_bins = 30
 
     posterior_mean1 = M.trace('group1_mean')[:]
     posterior_mean2 = M.trace('group2_mean')[:]
@@ -143,23 +142,23 @@ def make_figure(M):
     f = plt.figure(figsize=(8.2,11),facecolor='white')
     ax1 = f.add_subplot(5,2,1,axisbg='none')
     plot_posterior( posterior_mean1, bins=bin_edges_means, ax=ax1,
-                    title='Group 1 Mean', stat='mean',
+                    title='%s Mean' % group1_name, stat='mean',
                     label=r'$\mu_1$')
 
     ax3 = f.add_subplot(5,2,3,axisbg='none')
     plot_posterior( posterior_mean2, bins=bin_edges_means, ax=ax3,
-                    title='Group 2 Mean', stat='mean',
+                    title='%s Mean' % group2_name, stat='mean',
                     label=r'$\mu_2$')
 
     ax5 = f.add_subplot(5,2,5,axisbg='none')
     plot_posterior( posterior_std1, bins=bin_edges_stds, ax=ax5,
-                    title='Group 1 Std. Dev.',
+                    title='%s Std. Dev.' % group1_name,
                     label=r'$\sigma_1$')
 
 
     ax7 = f.add_subplot(5,2,7,axisbg='none')
     plot_posterior( posterior_std2, bins=bin_edges_stds, ax=ax7,
-                    title='Group 2 Std. Dev.',
+                    title='%s Std. Dev.' % group2_name,
                     label=r'$\sigma_2$')
 
     ax9 = f.add_subplot(5,2,9,axisbg='none')
@@ -191,14 +190,15 @@ def make_figure(M):
 
     ax2 = f.add_subplot(5,2,2,axisbg='none')
     plot_data_and_prediction(M.group1.value, posterior_mean1, posterior_std1,
-                             post_nu_minus_one, ax=ax2, bins=bin_edges, group=1)
+                             post_nu_minus_one, ax=ax2, bins=bin_edges, group=group1_name)
 
     ax4 = f.add_subplot(5,2,4,axisbg='none',sharex=ax2,sharey=ax2)
     plot_data_and_prediction(M.group2.value, posterior_mean2, posterior_std2,
-                             post_nu_minus_one, ax=ax4, bins=bin_edges, group=2)
+                             post_nu_minus_one, ax=ax4, bins=bin_edges, group=group2_name)
 
 
     f.subplots_adjust(hspace=0.82,top=0.97,bottom=0.06,
                       left=0.09, right=0.95, wspace=0.45)
+
     return f
 
