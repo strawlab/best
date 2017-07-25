@@ -115,7 +115,7 @@ def plot_data_and_prediction( data, means, stds, numos, ax=None, bins=None,
             )
     ax.xaxis.set_major_locator( mticker.MaxNLocator(nbins=4) )
     ax.yaxis.set_major_locator( mticker.MaxNLocator(nbins=4) )
-    ax.set_title('Data Group %s w. Post. Pred.'%(group,))
+    ax.set_title('Data %s w. Post. Pred.'%(group,))
 
 def make_figure(M, n_bins=30, group1_name='Group 1', group2_name='Group 2'):
     # plotting stuff
