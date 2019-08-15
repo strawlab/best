@@ -1,4 +1,6 @@
 from distutils.core import setup
+
+
 setup(name='best',
       description='Bayesian estimation supersedes the t test',
       author='Andrew Straw',
