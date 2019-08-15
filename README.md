@@ -13,7 +13,7 @@ BEST](http://www.indiana.edu/~kruschke/BEST/) for more information.
 
 ## Requirements ##
 
- * tested with Python 2.7 (not Python 3)
+ - Python ≥ 3.5.4
  * [PyMC](https://github.com/pymc-devs/pymc) for MCMC sampling
  * [matplotlib](http://matplotlib.org) for plotting
 
