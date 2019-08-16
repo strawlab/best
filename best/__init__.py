@@ -17,23 +17,20 @@ import numpy as np
 import scipy.stats
 
 
-def make_model(data: dict):
-    assert len(data) == 2, 'There must be exactly two data arrays'
-
-    name1, name2 = sorted(data.keys())
-
-    y1 = np.array(data[name1])
-    y2 = np.array(data[name2])
+def make_model(y1, y2):
+    y1 = np.array(y1)
+    y2 = np.array(y2)
 
     assert y1.ndim == 1
     assert y2.ndim == 1
-    y = np.concatenate((y1, y2))
 
-    mu_m = np.mean(y)
-    mu_scale = np.std(y) * 1000
+    y_all = np.concatenate((y1, y2))
 
-    sigma_low = np.std(y) / 1000
-    sigma_high = np.std(y) * 1000
+    mu_m = np.mean(y_all)
+    mu_scale = np.std(y_all) * 1000
+
+    sigma_low = np.std(y_all) / 1000
+    sigma_high = np.std(y_all) * 1000
 
     with pm.Model() as model:
         # the five prior distributions for the parameters in our model
@@ -41,13 +38,11 @@ def make_model(data: dict):
         group2_mean = pm.Normal('group2_mean', mu=mu_m, sd=mu_scale)
         group1_std = pm.Uniform('group1_std', lower=sigma_low, upper=sigma_high)
         group2_std = pm.Uniform('group2_std', lower=sigma_low, upper=sigma_high)
-        lambda_1 = group1_std ** (-2)
-        lambda_2 = group2_std ** (-2)
+        lambda1 = group1_std ** (-2)
+        lambda2 = group2_std ** (-2)
         nu = pm.Exponential('nu_minus_one', 1 / 29.) + 1
-        _ = pm.StudentT(name1, observed=y1,
-                        nu=nu, mu=group1_mean, lam=lambda_1)
-        _ = pm.StudentT(name2, observed=y2,
-                        nu=nu, mu=group2_mean, lam=lambda_2)
+        _ = pm.StudentT('y1', observed=y1, nu=nu, mu=group1_mean, lam=lambda1)
+        _ = pm.StudentT('y2', observed=y2, nu=nu, mu=group2_mean, lam=lambda2)
 
     return model
 

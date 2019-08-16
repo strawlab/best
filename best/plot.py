@@ -118,7 +118,7 @@ def plot_data_and_prediction(data, means, stds, numos, ax=None, bins=None,
     ax.set_title('Data %s w. Post. Pred.' % (group,))
 
 
-def make_figure(trace, data, n_bins=30, group1_name='Group 1', group2_name='Group 2'):
+def make_figure(trace, y1, y2, n_bins=30, group1_name='Group 1', group2_name='Group 2'):
     # plotting stuff
 
     posterior_mean1 = trace.get_values('group1_mean')
@@ -187,16 +187,16 @@ def make_figure(trace, data, n_bins=30, group1_name='Group 1', group2_name='Grou
                    label=r'$(\mu_1 - \mu_2) /'
                          r' \sqrt{(\sigma_1^2 + \sigma_2^2)/2}$')
 
-    orig_vals = np.concatenate((M.group1.value, M.group2.value))
+    orig_vals = np.concatenate((y1, y2))
     bin_edges = np.linspace(np.min(orig_vals), np.max(orig_vals), 30)
 
     ax2 = f.add_subplot(5, 2, 2)
-    plot_data_and_prediction(M.group1.value, posterior_mean1, posterior_std1,
+    plot_data_and_prediction(y1, posterior_mean1, posterior_std1,
                              post_nu_minus_one, ax=ax2,
                              bins=bin_edges, group=group1_name)
 
     ax4 = f.add_subplot(5, 2, 4, sharex=ax2, sharey=ax2)
-    plot_data_and_prediction(M.group2.value, posterior_mean2, posterior_std2,
+    plot_data_and_prediction(y2, posterior_mean2, posterior_std2,
                              post_nu_minus_one, ax=ax4,
                              bins=bin_edges, group=group2_name)
 

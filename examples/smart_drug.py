@@ -20,13 +20,11 @@ placebo = [99, 101, 100, 101, 102, 100, 97, 101, 104, 101, 102, 102, 100, 105, 8
            104, 100, 100, 100, 101, 102, 103, 97, 101, 101, 100, 101, 99, 101, 100, 100,
            101, 100, 99, 101, 100, 102, 99, 100, 99]
 
-data = {'drug': drug, 'placebo': placebo}
-
-model = best.make_model(data)
+model = best.make_model(drug, placebo)
 
 with model:
     trace = pm.sample(2000, n_init=20000)
 
-fig = best.plot.make_figure(trace)
+fig = best.plot.make_figure(trace, drug, placebo)
 fig.savefig('smart_drug.png', dpi=70)
 fig.savefig('smart_drug.pdf')
