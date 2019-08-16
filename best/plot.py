@@ -83,7 +83,7 @@ def plot_data_and_prediction(data, means, stds, numos, ax=None, bins=None,
     assert ax is not None
 
     ax.hist(data, bins=bins, rwidth=0.5,
-            facecolor='r', edgecolor='none', normed=True)
+            facecolor='r', edgecolor='none', density=True)
 
     if bins is not None:
         if hasattr(bins, '__len__'):
