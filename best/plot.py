@@ -13,7 +13,8 @@ import matplotlib.pyplot as plt
 from matplotlib.transforms import blended_transform_factory
 import matplotlib.lines as mpllines
 import matplotlib.ticker as mticker
-from pymc.distributions import noncentral_t_like
+
+import scipy.stats as st
 
 pretty_blue = '#89d1ea'
 
@@ -100,13 +101,13 @@ def plot_data_and_prediction(data, means, stds, numos, ax=None, bins=None,
     ax.set_ylabel('p(y)')
 
     for i in idxs:
-        m = means[i]
-        s = stds[i]
-        lam = 1 / s ** 2
+        loc = means[i]
+        scale = stds[i]
         numo = numos[i]
         nu = numo + 1
 
-        v = np.exp([noncentral_t_like(xi, m, lam, nu) for xi in x])
+        v = np.exp([st.t.logpdf(xi, nu, loc, scale)
+                    for xi in x])
         ax.plot(x, v, color=pretty_blue, zorder=-10)
 
     ax.text(0.8, 0.95, r'$\mathrm{N}_{%s}=%d$' % (group, len(data),),
