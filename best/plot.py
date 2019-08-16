@@ -16,7 +16,7 @@ import matplotlib.ticker as mticker
 
 import scipy.stats as st
 
-pretty_blue = '#89d1ea'
+PRETTY_BLUE = '#89d1ea'
 
 
 def plot_posterior(sample_vec, bins=None, ax=None, title=None, stat='mode',
@@ -32,7 +32,7 @@ def plot_posterior(sample_vec, bins=None, ax=None, title=None, stat='mode',
         else:
             kwargs = {}
         ax.hist(sample_vec, rwidth=0.8,
-                facecolor=pretty_blue, edgecolor='none', **kwargs)
+                facecolor=PRETTY_BLUE, edgecolor='none', **kwargs)
         if title is not None:
             ax.set_title(title)
 
@@ -105,10 +105,8 @@ def plot_data_and_prediction(data, means, stds, numos, ax=None, bins=None,
         scale = stds[i]
         numo = numos[i]
         nu = numo + 1
-
-        v = np.exp([st.t.logpdf(xi, nu, loc, scale)
-                    for xi in x])
-        ax.plot(x, v, color=pretty_blue, zorder=-10)
+        v = st.t.pdf(x, nu, loc, scale)
+        ax.plot(x, v, color=PRETTY_BLUE, zorder=-10, alpha=0.5)
 
     ax.text(0.8, 0.95, r'$\mathrm{N}_{%s}=%d$' % (group, len(data),),
             transform=ax.transAxes,
