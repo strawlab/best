@@ -26,3 +26,4 @@ M.sample(iter=110000, burn=10000)
 
 fig = best.plot.make_figure(M)
 fig.savefig('smart_drug.png', dpi=70)
+fig.savefig('smart_drug.pdf')
