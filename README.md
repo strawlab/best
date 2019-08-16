@@ -14,8 +14,9 @@ BEST](http://www.indiana.edu/~kruschke/BEST/) for more information.
 ## Requirements ##
 
  - Python ≥ 3.5.4
- * [PyMC](https://github.com/pymc-devs/pymc) for MCMC sampling
- * [matplotlib](http://matplotlib.org) for plotting
+ - SciPy
+ - [matplotlib](http://matplotlib.org) for plotting
+ - [PyMC](https://github.com/pymc-devs/pymc) for sampling from the posterior
 
 ## Example ##
 
