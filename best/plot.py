@@ -109,7 +109,7 @@ def plot_data_and_prediction(data, means, stds, numos, ax=None, bins=None,
         v = np.exp([noncentral_t_like(xi, m, lam, nu) for xi in x])
         ax.plot(x, v, color=pretty_blue, zorder=-10)
 
-    ax.text(0.8, 0.95, '$\mathrm{N}_{%s}=%d$' % (group, len(data),),
+    ax.text(0.8, 0.95, r'$\mathrm{N}_{%s}=%d$' % (group, len(data),),
             transform=ax.transAxes,
             horizontalalignment='left',
             verticalalignment='top'
@@ -136,7 +136,8 @@ def make_figure(M, n_bins=30, group1_name='Group 1', group2_name='Group 2'):
     posterior_stds = np.concatenate((posterior_std1, posterior_std2))
     _, bin_edges_stds = np.histogram(posterior_stds, bins=n_bins)
 
-    effect_size = diff_means / np.sqrt((posterior_std1 ** 2 + posterior_std2 ** 2) / 2)
+    effect_size = diff_means / np.sqrt((posterior_std1 ** 2
+                                        + posterior_std2 ** 2) / 2)
 
     post_nu_minus_one = M.trace('nu_minus_one')[:]
     lognup = np.log10(post_nu_minus_one + 1)
@@ -191,11 +192,13 @@ def make_figure(M, n_bins=30, group1_name='Group 1', group2_name='Group 2'):
 
     ax2 = f.add_subplot(5, 2, 2, axisbg='none')
     plot_data_and_prediction(M.group1.value, posterior_mean1, posterior_std1,
-                             post_nu_minus_one, ax=ax2, bins=bin_edges, group=group1_name)
+                             post_nu_minus_one, ax=ax2,
+                             bins=bin_edges, group=group1_name)
 
     ax4 = f.add_subplot(5, 2, 4, axisbg='none', sharex=ax2, sharey=ax2)
     plot_data_and_prediction(M.group2.value, posterior_mean2, posterior_std2,
-                             post_nu_minus_one, ax=ax4, bins=bin_edges, group=group2_name)
+                             post_nu_minus_one, ax=ax4,
+                             bins=bin_edges, group=group2_name)
 
     f.subplots_adjust(hspace=0.82, top=0.97, bottom=0.06,
                       left=0.09, right=0.95, wspace=0.45)
