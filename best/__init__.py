@@ -12,7 +12,7 @@ Kruschke, J. (2012) Bayesian estimation supersedes the t
 
 """
 
-from __future__ import division
+
 from pymc import Uniform, Normal, Exponential, NoncentralT, deterministic, Model
 import numpy as np
 import scipy.stats

@@ -5,7 +5,7 @@ This module produces plots similar to those in
 Kruschke, J. (2012) Bayesian estimation supersedes the t
     test. Journal of Experimental Psychology: General.
 """
-from __future__ import division
+
 import numpy as np
 from best import calculate_sample_statistics
 
@@ -94,7 +94,7 @@ def plot_data_and_prediction(data, means, stds, numos, ax=None, bins=None,
             xmax = np.max(data)
 
     n_samps = len(means)
-    idxs = map(int, np.round(np.random.uniform(size=n_curves) * n_samps))
+    idxs = np.round(np.random.uniform(size=n_curves) * n_samps).astype(int)
 
     x = np.linspace(xmin, xmax, 100)
     ax.set_xlabel('y')
