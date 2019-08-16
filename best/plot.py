@@ -118,18 +118,18 @@ def plot_data_and_prediction(data, means, stds, numos, ax=None, bins=None,
     ax.set_title('Data %s w. Post. Pred.' % (group,))
 
 
-def make_figure(M, n_bins=30, group1_name='Group 1', group2_name='Group 2'):
+def make_figure(trace, n_bins=30, group1_name='Group 1', group2_name='Group 2'):
     # plotting stuff
 
-    posterior_mean1 = M.trace('group1_mean')[:]
-    posterior_mean2 = M.trace('group2_mean')[:]
+    posterior_mean1 = trace.get_values('group1_mean')
+    posterior_mean2 = trace.get_values('group2_mean')
     diff_means = posterior_mean1 - posterior_mean2
 
     posterior_means = np.concatenate((posterior_mean1, posterior_mean2))
     _, bin_edges_means = np.histogram(posterior_means, bins=n_bins)
 
-    posterior_std1 = M.trace('group1_std')[:]
-    posterior_std2 = M.trace('group2_std')[:]
+    posterior_std1 = trace.get_values('group1_std')
+    posterior_std2 = trace.get_values('group2_std')
     diff_stds = posterior_std1 - posterior_std2
 
     posterior_stds = np.concatenate((posterior_std1, posterior_std2))
@@ -138,7 +138,7 @@ def make_figure(M, n_bins=30, group1_name='Group 1', group2_name='Group 2'):
     effect_size = diff_means / np.sqrt((posterior_std1 ** 2
                                         + posterior_std2 ** 2) / 2)
 
-    post_nu_minus_one = M.trace('nu_minus_one')[:]
+    post_nu_minus_one = trace.get_values('nu_minus_one')
     lognup = np.log10(post_nu_minus_one + 1)
 
     f = plt.figure(figsize=(8.2, 11), facecolor='white')

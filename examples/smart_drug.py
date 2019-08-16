@@ -1,14 +1,17 @@
+"""
+This example reproduces Figure 3 from (Kruschke, 2012).
+
+Kruschke, J. (2012) Bayesian estimation supersedes the t test.
+        Journal of Experimental Psychology: General.
+
+According to the article, the data were generated from t
+distributions of known values.
+"""
+
 import best
 import best.plot
-from pymc import MCMC
+import pymc3 as pm
 
-# This example reproduces Figure 3 of
-#
-# Kruschke, J. (2012) Bayesian estimation supersedes the t
-#     test. Journal of Experimental Psychology: General.
-#
-# According to the article, the data were generated from t
-# distributions of known values.
 
 drug = [101, 100, 102, 104, 102, 97, 105, 105, 98, 101, 100, 123, 105, 103, 100, 95, 102, 106,
         109, 102, 82, 102, 100, 102, 102, 101, 102, 102, 103, 103, 97, 97, 103, 101, 97, 104,
@@ -21,9 +24,9 @@ data = {'drug': drug, 'placebo': placebo}
 
 model = best.make_model(data)
 
-M = MCMC(model)
-M.sample(iter=110000, burn=10000)
+with model:
+    trace = pm.sample(2000, n_init=20000)
 
-fig = best.plot.make_figure(M)
+fig = best.plot.make_figure(trace)
 fig.savefig('smart_drug.png', dpi=70)
 fig.savefig('smart_drug.pdf')

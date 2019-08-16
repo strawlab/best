@@ -12,13 +12,12 @@ Kruschke, J. (2012) Bayesian estimation supersedes the t
 
 """
 
-
-from pymc import Uniform, Normal, Exponential, NoncentralT, deterministic, Model
+import pymc3 as pm
 import numpy as np
 import scipy.stats
 
 
-def make_model(data):
+def make_model(data: dict):
     assert len(data) == 2, 'There must be exactly two data arrays'
 
     name1, name2 = sorted(data.keys())
@@ -31,40 +30,26 @@ def make_model(data):
     y = np.concatenate((y1, y2))
 
     mu_m = np.mean(y)
-    mu_p = 0.000001 * 1 / np.std(y) ** 2
+    mu_scale = np.std(y) * 1000
 
     sigma_low = np.std(y) / 1000
     sigma_high = np.std(y) * 1000
 
-    # the five prior distributions for the parameters in our model
-    group1_mean = Normal('group1_mean', mu_m, mu_p)
-    group2_mean = Normal('group2_mean', mu_m, mu_p)
-    group1_std = Uniform('group1_std', sigma_low, sigma_high)
-    group2_std = Uniform('group2_std', sigma_low, sigma_high)
-    nu_minus_one = Exponential('nu_minus_one', 1 / 29)
+    with pm.Model() as model:
+        # the five prior distributions for the parameters in our model
+        group1_mean = pm.Normal('group1_mean', mu=mu_m, sd=mu_scale)
+        group2_mean = pm.Normal('group2_mean', mu=mu_m, sd=mu_scale)
+        group1_std = pm.Uniform('group1_std', lower=sigma_low, upper=sigma_high)
+        group2_std = pm.Uniform('group2_std', lower=sigma_low, upper=sigma_high)
+        lambda_1 = group1_std ** (-2)
+        lambda_2 = group2_std ** (-2)
+        nu = pm.Exponential('nu_minus_one', 1 / 29.) + 1
+        _ = pm.StudentT(name1, observed=y1,
+                        nu=nu, mu=group1_mean, lam=lambda_1)
+        _ = pm.StudentT(name2, observed=y2,
+                        nu=nu, mu=group2_mean, lam=lambda_2)
 
-    @deterministic(plot=False)
-    def nu(n=nu_minus_one):
-        out = n + 1
-        return out
-
-    @deterministic(plot=False)
-    def lam1(s=group1_std):
-        out = 1 / s ** 2
-        return out
-
-    @deterministic(plot=False)
-    def lam2(s=group2_std):
-        out = 1 / s ** 2
-        return out
-
-    group1 = NoncentralT(name1, group1_mean, lam1, nu, value=y1, observed=True)
-    group2 = NoncentralT(name2, group2_mean, lam2, nu, value=y2, observed=True)
-    return Model({'group1': group1,
-                  'group2': group2,
-                  'group1_mean': group1_mean,
-                  'group2_mean': group2_mean,
-                  })
+    return model
 
 
 def hdi_of_mcmc(sample_vec, cred_mass=0.95):
