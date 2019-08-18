@@ -7,7 +7,6 @@ Kruschke, J. (2012) Bayesian estimation supersedes the t
 """
 
 import numpy as np
-from best import calculate_sample_statistics
 
 import matplotlib.pyplot as plt
 from matplotlib.transforms import blended_transform_factory
@@ -15,6 +14,9 @@ import matplotlib.lines as mpllines
 import matplotlib.ticker as mticker
 
 import scipy.stats as st
+import pymc3 as pm
+
+from best import calculate_sample_statistics
 
 PRETTY_BLUE = '#89d1ea'
 
@@ -120,15 +122,15 @@ def plot_data_and_prediction(data, means, stds, numos, ax=None, bins=None,
 def make_figure(trace, y1, y2, n_bins=30, group1_name='Group 1', group2_name='Group 2'):
     # plotting stuff
 
-    posterior_mean1 = trace.get_values('group1_mean')
-    posterior_mean2 = trace.get_values('group2_mean')
+    posterior_mean1 = trace.get_values('Group 1 mean')
+    posterior_mean2 = trace.get_values('Group 2 mean')
     diff_means = posterior_mean1 - posterior_mean2
 
     posterior_means = np.concatenate((posterior_mean1, posterior_mean2))
     _, bin_edges_means = np.histogram(posterior_means, bins=n_bins)
 
-    posterior_std1 = trace.get_values('group1_std')
-    posterior_std2 = trace.get_values('group2_std')
+    posterior_std1 = trace.get_values('Group 1 SD')
+    posterior_std2 = trace.get_values('Group 2 SD')
     diff_stds = posterior_std1 - posterior_std2
 
     posterior_stds = np.concatenate((posterior_std1, posterior_std2))
@@ -137,8 +139,8 @@ def make_figure(trace, y1, y2, n_bins=30, group1_name='Group 1', group2_name='Gr
     effect_size = diff_means / np.sqrt((posterior_std1 ** 2
                                         + posterior_std2 ** 2) / 2)
 
-    post_nu_minus_one = trace.get_values('nu_minus_one')
-    lognup = np.log10(post_nu_minus_one + 1)
+    post_nu_minus_one = trace.get_values('nu - 1')
+    posterior_normality = trace.get_values('Normality')
 
     f = plt.figure(figsize=(8.2, 11), facecolor='white')
     ax1 = f.add_subplot(5, 2, 1)
@@ -162,9 +164,16 @@ def make_figure(trace, y1, y2, n_bins=30, group1_name='Group 1', group2_name='Gr
                    label=r'$\sigma_2$')
 
     ax9 = f.add_subplot(5, 2, 9)
-    plot_posterior(lognup, bins=n_bins, ax=ax9,
+    norm_bins = np.logspace(
+            0,
+            np.log10(pm.hpd(posterior_normality, alpha=0.01)[-1] * 3),
+            num = n_bins + 1
+    )
+    plot_posterior(posterior_normality, bins=norm_bins, ax=ax9,
                    title='Normality',
-                   label=r'$\mathrm{log10}(\nu)$')
+                   label=r'$\nu$')
+    ax9.semilogx()
+    ax9.set_xlim(0.5, norm_bins[-1]*3)
 
     ax6 = f.add_subplot(5, 2, 6)
     plot_posterior(diff_means, bins=n_bins, ax=ax6,
