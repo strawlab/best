@@ -7,16 +7,14 @@ Kruschke, J. (2012) Bayesian estimation supersedes the t
 """
 
 import numpy as np
-
 import matplotlib.pyplot as plt
 from matplotlib.transforms import blended_transform_factory
 import matplotlib.lines as mpllines
 import matplotlib.ticker as mticker
-
-import scipy.stats as st
 import pymc3 as pm
+import scipy.stats as st
 
-from best import calculate_sample_statistics
+from .utils import calculate_sample_statistics
 
 PRETTY_BLUE = '#89d1ea'
 
@@ -119,7 +117,7 @@ def plot_data_and_prediction(data, means, stds, numos, ax=None, bins=None,
     ax.set_title('%s Data with Post. Pred.' % (group,))
 
 
-def make_figure(trace, y1, y2, n_bins=30, group1_name='Group 1', group2_name='Group 2'):
+def plot_all(trace, y1, y2, n_bins=30, group1_name='Group 1', group2_name='Group 2'):
     # plotting stuff
 
     posterior_mean1 = trace.get_values('Group 1 mean')

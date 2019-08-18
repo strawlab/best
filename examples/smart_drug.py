@@ -9,7 +9,6 @@ distributions of known values.
 """
 
 import best
-import best.plot
 import pymc3 as pm
 
 
@@ -25,6 +24,6 @@ model = best.make_model(drug, placebo)
 with model:
     trace = pm.sample(2000, tune=1000)
 
-fig = best.plot.make_figure(trace, drug, placebo)
+fig = best.plot_all(trace, drug, placebo)
 fig.savefig('smart_drug.png', dpi=70)
 fig.savefig('smart_drug.pdf')
