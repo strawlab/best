@@ -23,7 +23,7 @@ placebo = [99, 101, 100, 101, 102, 100, 97, 101, 104, 101, 102, 102, 100, 105, 8
 model = best.make_model(drug, placebo)
 
 with model:
-    trace = pm.sample(2000)
+    trace = pm.sample(2000, tune=1000)
 
 fig = best.plot.make_figure(trace, drug, placebo)
 fig.savefig('smart_drug.png', dpi=70)
