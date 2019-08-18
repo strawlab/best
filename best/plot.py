@@ -107,14 +107,14 @@ def plot_data_and_prediction(data, means, stds, numos, ax=None, bins=None,
         v = st.t.pdf(x, nu, loc, scale)
         ax.plot(x, v, color=PRETTY_BLUE, zorder=-10, alpha=0.5)
 
-    ax.text(0.8, 0.95, r'$\mathrm{N}_{%s}=%d$' % (group, len(data),),
+    ax.text(0.95, 0.95, r'$\mathrm{N}=%d$' % len(data),
             transform=ax.transAxes,
-            horizontalalignment='left',
+            horizontalalignment='right',
             verticalalignment='top'
             )
     ax.xaxis.set_major_locator(mticker.MaxNLocator(nbins=4))
     ax.yaxis.set_major_locator(mticker.MaxNLocator(nbins=4))
-    ax.set_title('Data %s w. Post. Pred.' % (group,))
+    ax.set_title('%s Data with Post. Pred.' % (group,))
 
 
 def make_figure(trace, y1, y2, n_bins=30, group1_name='Group 1', group2_name='Group 2'):
