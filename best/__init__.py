@@ -47,22 +47,8 @@ def make_model(y1, y2):
     return model
 
 
-def hdi_of_mcmc(sample_vec, cred_mass=0.95):
-    assert len(sample_vec), 'need points to find HDI'
-    sorted_pts = np.sort(sample_vec)
-
-    ci_idx_inc = int(np.floor(cred_mass * len(sorted_pts)))
-    n_cis = len(sorted_pts) - ci_idx_inc
-    ci_width = sorted_pts[ci_idx_inc:] - sorted_pts[:n_cis]
-
-    min_idx = np.argmin(ci_width)
-    hdi_min = sorted_pts[min_idx]
-    hdi_max = sorted_pts[min_idx + ci_idx_inc]
-    return hdi_min, hdi_max
-
-
 def calculate_sample_statistics(sample_vec):
-    hdi_min, hdi_max = hdi_of_mcmc(sample_vec)
+    hdi_min, hdi_max = pm.hpd(sample_vec, alpha=0.05)
 
     # calculate mean
     mean_val = np.mean(sample_vec)
