@@ -85,13 +85,12 @@ def plot_data_and_prediction(data, means, stds, numos, ax=None, bins=None,
     ax.hist(data, bins=bins, rwidth=0.5,
             facecolor='r', edgecolor='none', density=True)
 
-    if bins is not None:
-        if hasattr(bins, '__len__'):
-            xmin = bins[0]
-            xmax = bins[-1]
-        else:
-            xmin = np.min(data)
-            xmax = np.max(data)
+    try:
+        xmin = bins[0]
+        xmax = bins[-1]
+    except TypeError:
+        xmin = np.min(data)
+        xmax = np.max(data)
 
     n_samps = len(means)
     idxs = np.round(np.random.uniform(size=n_curves) * n_samps).astype(int)
