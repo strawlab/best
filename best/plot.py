@@ -95,7 +95,7 @@ def plot_data_and_prediction(data, means, stds, numos, ax=None, bins=None,
     n_samps = len(means)
     idxs = np.round(np.random.uniform(size=n_curves) * n_samps).astype(int)
 
-    x = np.linspace(xmin, xmax, 100)
+    x = np.linspace(xmin, xmax, 1000)
     ax.set_xlabel('y')
     ax.set_ylabel('p(y)')
 
