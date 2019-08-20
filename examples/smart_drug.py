@@ -9,7 +9,6 @@ distributions of known values.
 """
 
 import best
-import pymc3 as pm
 
 
 drug = [101, 100, 102, 104, 102, 97, 105, 105, 98, 101, 100, 123, 105, 103, 100, 95, 102, 106,
@@ -19,11 +18,8 @@ placebo = [99, 101, 100, 101, 102, 100, 97, 101, 104, 101, 102, 102, 100, 105, 8
            104, 100, 100, 100, 101, 102, 103, 97, 101, 101, 100, 101, 99, 101, 100, 100,
            101, 100, 99, 101, 100, 102, 99, 100, 99]
 
-model = best.make_model(drug, placebo)
+best_out = best.two_groups(drug, placebo)
 
-with model:
-    trace = pm.sample(2000, tune=1000)
-
-fig = best.plot_all(trace, drug, placebo)
+fig = best.plot_all(best_out, drug, placebo)
 fig.savefig('smart_drug.png', dpi=70)
 fig.savefig('smart_drug.pdf')

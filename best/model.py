@@ -16,7 +16,7 @@ import numpy as np
 import pymc3 as pm
 
 
-def make_model(y1, y2):
+def make_model_two_groups(y1, y2):
     y1 = np.array(y1)
     y2 = np.array(y2)
 
@@ -40,13 +40,41 @@ def make_model(y1, y2):
         lambda1 = group1_std ** (-2)
         lambda2 = group2_std ** (-2)
         nu = pm.Exponential('nu - 1', 1 / 29.) + 1
-        normality = pm.Deterministic('Normality', nu)
+        _ = pm.Deterministic('Normality', nu)
 
-        group1_obs = pm.StudentT('Group 1 data', observed=y1, nu=nu, mu=group1_mean, lam=lambda1)
-        group2_obs = pm.StudentT('Group 2 data', observed=y2, nu=nu, mu=group2_mean, lam=lambda2)
+        _ = pm.StudentT('Group 1 data', observed=y1, nu=nu, mu=group1_mean, lam=lambda1)
+        _ = pm.StudentT('Group 2 data', observed=y2, nu=nu, mu=group2_mean, lam=lambda2)
 
         diff_of_means = pm.Deterministic('Difference of means', group1_mean - group2_mean)
-        diff_of_stds = pm.Deterministic('Difference of SDs', group1_std - group2_std)
-        effect_size = pm.Deterministic('Effect size', diff_of_means / np.sqrt((group1_std ** 2 + group2_std ** 2) / 2))
+        _ = pm.Deterministic('Difference of SDs', group1_std - group2_std)
+        _ = pm.Deterministic('Effect size', diff_of_means / np.sqrt((group1_std ** 2 + group2_std ** 2) / 2))
 
     return model
+
+
+def analyze_two(y1, y2, n_samples=2000, **kwargs):
+    """Analyze the difference between two groups
+
+    This function creates a model with the given parameters, and updates the
+    distributions of the parameters as dictated by the model and the data.
+
+    :param **kwargs: Keyword arguments are passed to :meth:`pymc3.sample`.
+        For example, number of tuning samples can be increased to 2000
+        (from the default 1000) by::
+
+            best.analyze_two(group_1_data, group_2_data, tune=2000)
+
+    """
+    model = make_model_two_groups(y1, y2)
+    kwargs['tune'] = kwargs.get('tune', 1000)
+    kwargs['nuts_kwargs'] = kwargs.get('nuts_kwargs', {'target_accept': 0.90})
+
+    with model:
+        trace = pm.sample(n_samples, **kwargs)
+
+    return trace
+
+
+# We make an alias for pm.summary() too so that the user doesn't need to import
+#  the `pymc3` module explicitly.
+summary = pm.summary
