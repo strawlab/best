@@ -12,6 +12,8 @@ Kruschke, J. (2012) Bayesian estimation supersedes the t
 
 """
 
+import sys
+
 import numpy as np
 import pymc3 as pm
 
@@ -33,6 +35,10 @@ def make_model_two_groups(y1, y2):
 
     with pm.Model() as model:
         # the five prior distributions for the parameters in our model
+        # Note: the IDE might give a warning for these because it thinks
+        #  distributions like pm.Normal() don't have a string "name" argument,
+        #  but this is false – pm.Distribution redefined __new__, so the
+        #  first argument indeed is the name (a string).
         group1_mean = pm.Normal('Group 1 mean', mu=mu_m, sd=mu_scale)
         group2_mean = pm.Normal('Group 2 mean', mu=mu_m, sd=mu_scale)
         group1_std = pm.Uniform('Group 1 SD', lower=sigma_low, upper=sigma_high)
@@ -69,8 +75,17 @@ def analyze_two(y1, y2, n_samples=2000, **kwargs):
     kwargs['tune'] = kwargs.get('tune', 1000)
     kwargs['nuts_kwargs'] = kwargs.get('nuts_kwargs', {'target_accept': 0.90})
 
-    with model:
-        trace = pm.sample(n_samples, **kwargs)
+    for _ in range(2):
+        with model:
+            trace = pm.sample(n_samples, **kwargs)
+
+        if trace.report.ok:
+            break
+        else:
+            kwargs['tune'] = 2000
+            print("\nDue to potentially incorrect estimates, rerunning sampling "
+                  "with {} tuning samples.\n".format(kwargs['tune']),
+                  file=sys.stderr)
 
     return trace
 
