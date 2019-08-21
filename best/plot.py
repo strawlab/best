@@ -7,7 +7,14 @@ Kruschke, J. (2012) Bayesian estimation supersedes the t
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
+
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    import matplotlib as mpl
+    mpl.rcParams["backend"] = "TkAgg"
+    import matplotlib.pyplot as plt
+
 from matplotlib.transforms import blended_transform_factory
 import matplotlib.lines as mpllines
 import matplotlib.ticker as mticker
