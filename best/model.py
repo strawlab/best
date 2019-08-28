@@ -265,6 +265,52 @@ class BestResults(ABC):
         """
         return tuple(pm.hpd(self.trace[var_name], alpha=alpha))
 
+    def posterior_prob(self, var_name: str, low: float = -np.inf, high: float = np.inf):
+        r"""Calculate the posterior probability that a variable is in a given interval
+
+        The return value approximates the following probability:
+
+        .. math:: \text{Pr}(\textit{low} < \theta_{\textit{var_name}} < \textit{high} | y_1, y_2)
+
+        One-sided intervals can be specified by using only the ``low`` or ``high`` argument,
+        for example, to calculate the probability that the the mean of the
+        first group is larger than that of the second one::
+
+            best_result.posterior_prob('Difference of means', low=0)
+
+        Parameters
+        ----------
+        var_name : str
+            Name of variable.
+        low : float, optional
+            Lower limit of the interval.
+            Default: :math:`-\infty` (no lower limit)
+        high : float, optional
+            Upper limit of the interval.
+            Default: :math:`\infty` (no upper limit)
+
+        Returns
+        -------
+        float
+            Posterior probability that the variable is in the given interval.
+
+        Notes
+        -----
+        If *p* is the result and *S* is the total number of samples, then the
+         standard deviation of the result is :math:`\sqrt{p(1-p)/S}`
+         (see BDA3, p. 267). For example, with 2000 samples, the errors for
+         some returned probabilities are
+          - 0.01 ± 0.002,
+          - 0.1 ± 0.007,
+          - 0.2 ± 0.009,
+          - 0.5 ± 0.011,
+         meaning the answer is accurate for most practical purposes.
+        """
+        samples = self.trace[var_name]
+        n_match = len(samples[(low < samples) * (samples < high)])
+        n_all = len(samples)
+        return n_match / n_all
+
     def posterior_mode(self,
                        var_name: str):
         """Calculate the posterior mode of a variable
