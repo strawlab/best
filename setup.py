@@ -11,7 +11,7 @@ setup(name='best',
       long_description=long_description,
       long_description_content_type="text/markdown",
       url='https://github.com/strawlab/best',
-      version='2.0',
+      version='2.0.0',
       packages=['best'],
       classifiers=[
               "Programming Language :: Python :: 3",

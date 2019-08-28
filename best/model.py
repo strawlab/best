@@ -12,84 +12,312 @@ Kruschke, J. (2012) Bayesian estimation supersedes the t
 
 """
 
+from abc import ABC, abstractmethod
 import sys
 
 import numpy as np
 import pymc3 as pm
+from pymc3.backends.base import MultiTrace
+import scipy.stats as st
 
 
-def make_model_two_groups(y1, y2):
-    y1 = np.array(y1)
-    y2 = np.array(y2)
+class BestModel(ABC):
+    """Base class for BEST models"""
 
-    assert y1.ndim == 1
-    assert y2.ndim == 1
+    @property
+    @abstractmethod
+    def version(self):
+        """Version of the model specification"""
+        pass
 
-    y_all = np.concatenate((y1, y2))
+    @property
+    @abstractmethod
+    def model(self):
+        """The underlying PyMC3 Model object
 
-    mu_m = np.mean(y_all)
-    mu_scale = np.std(y_all) * 1000
+        (This property is accessible mostly for internal purposes.)
+        """
+        pass
 
-    sigma_low = np.std(y_all) / 1000
-    sigma_high = np.std(y_all) * 1000
+    @abstractmethod
+    def observed_data(self, group_id):
+        """Return the observed data (as a NumPy array)
 
-    with pm.Model() as model:
-        # the five prior distributions for the parameters in our model
-        # Note: the IDE might give a warning for these because it thinks
-        #  distributions like pm.Normal() don't have a string "name" argument,
-        #  but this is false – pm.Distribution redefined __new__, so the
-        #  first argument indeed is the name (a string).
-        group1_mean = pm.Normal('Group 1 mean', mu=mu_m, sd=mu_scale)
-        group2_mean = pm.Normal('Group 2 mean', mu=mu_m, sd=mu_scale)
-        group1_std = pm.Uniform('Group 1 SD', lower=sigma_low, upper=sigma_high)
-        group2_std = pm.Uniform('Group 2 SD', lower=sigma_low, upper=sigma_high)
-        lambda1 = group1_std ** (-2)
-        lambda2 = group2_std ** (-2)
-        nu = pm.Exponential('nu - 1', 1 / 29.) + 1
-        _ = pm.Deterministic('Normality', nu)
+        (This property is accessible mostly for internal purposes.)
+        """
+        pass
 
-        _ = pm.StudentT('Group 1 data', observed=y1, nu=nu, mu=group1_mean, lam=lambda1)
-        _ = pm.StudentT('Group 2 data', observed=y2, nu=nu, mu=group2_mean, lam=lambda2)
+    @abstractmethod
+    def __str__(self):
+        pass
 
-        diff_of_means = pm.Deterministic('Difference of means', group1_mean - group2_mean)
-        _ = pm.Deterministic('Difference of SDs', group1_std - group2_std)
-        _ = pm.Deterministic('Effect size', diff_of_means / np.sqrt((group1_std ** 2 + group2_std ** 2) / 2))
+    def sample(self, n_samples: int, **kwargs) -> MultiTrace:
+        """Draw posterior samples from the model
 
-    return model
+        (This function is accessible primarily for internal purposes.)
+        """
+
+        kwargs['tune'] = kwargs.get('tune', 1000)
+        kwargs['nuts_kwargs'] = kwargs.get('nuts_kwargs', {'target_accept': 0.90})
+        max_rounds = 2
+        for r in range(max_rounds):
+            with self.model:
+                trace = pm.sample(n_samples, **kwargs)
+
+            if trace.report.ok:
+                break
+            else:
+                if r == 0:
+                    kwargs['tune'] = 2000
+                    print('\nDue to potentially incorrect estimates, rerunning sampling '
+                          'with {} tuning samples.\n'.format(kwargs['tune']), file=sys.stderr)
+                else:
+                    print('\nThe samples maybe are still not totally okay. '
+                          'Try rerunning the analysis.')
+
+        return trace
 
 
-def make_model_one_group(y, ref_val=0):
-    y = np.array(y)
+class BestModelOne(BestModel):
+    """Model for a single-group analysis"""
 
-    assert y.ndim == 1
+    def __init__(self, y, ref_val):
+        self.y = y = np.array(y)
+        self.ref_val = ref_val
 
-    mu_m = np.mean(y)
-    mu_scale = np.std(y) * 1000
+        assert y.ndim == 1
 
-    sigma_low = np.std(y) / 1000
-    sigma_high = np.std(y) * 1000
+        self.mu_loc = mu_loc = np.mean(y)
+        self.mu_scale = mu_scale = np.std(y) * 1000
 
-    with pm.Model() as model:
-        # the five prior distributions for the parameters in our model
-        # Note: the IDE might give a warning for these because it thinks
-        #  distributions like pm.Normal() don't have a string "name" argument,
-        #  but this is false – pm.Distribution redefined __new__, so the
-        #  first argument indeed is the name (a string).
-        group_mean = pm.Normal('Mean', mu=mu_m, sd=mu_scale)
-        group_std = pm.Uniform('SD', lower=sigma_low, upper=sigma_high)
-        group_prec = group_std ** (-2)
-        nu = pm.Exponential('nu - 1', 1 / 29.) + 1
-        _ = pm.Deterministic('Normality', np.log10(nu))
-        _ = pm.StudentT('Data', observed=y, nu=nu, mu=group_mean, lam=group_prec)
-        _ = pm.Deterministic('Effect size', (group_mean - ref_val) / group_std)
+        self.sigma_low = sigma_low = np.std(y) / 1000
+        self.sigma_high = sigma_high = np.std(y) * 1000
 
-    return model
+        self.nu_min = nu_min = 1
+        self.nu_mean = nu_mean = 30
+        self._nu_param = nu_mean - nu_min
+
+        with pm.Model() as self._model:
+            # Note: the IDE might give a warning for these because it thinks
+            #  distributions like pm.Normal() don't have a string "name" argument,
+            #  but this is false – pm.Distribution redefined __new__, so the
+            #  first argument indeed is the name (a string).
+            mean = pm.Normal('Mean', mu=mu_loc, sd=mu_scale)
+            stddev = pm.Uniform('SD', lower=sigma_low, upper=sigma_high)
+            nu = pm.Exponential('nu - %g' % nu_min, 1 / (nu_mean - nu_min)) + nu_min
+            _ = pm.Deterministic('Normality', nu)
+            _ = pm.StudentT('Data', observed=y, nu=nu, mu=mean, sd=stddev)
+            _ = pm.Deterministic('Effect size', (mean - ref_val) / stddev)
+
+    @property
+    def version(self):
+        return 'v1'
+
+    @property
+    def model(self):
+        return self._model
+
+    def observed_data(self, group_id):
+        if group_id == 1:
+            return self.y
+        else:
+            raise ValueError('Group ID for a single-group analysis must be 1')
+
+    def __repr__(self):
+        return 'BestModelOne(y=%r, ref_val=%r, version=%r)' \
+               % (self.y, self.ref_val, self.version)
+
+    def __str__(self):
+        return ('μ ~ Normal({0.mu_loc:.2e}, {0.mu_scale:.2e})\n'
+                'σ ~ Uniform({0.sigma_low:g}, {0.sigma_high:g})\n'
+                'ν ~ Exponential(1/{0._nu_param:g}) + {0.nu_min:g}\n'
+                'y ~ t(ν, μ, σ)\n'.format(self))
+
+
+class BestModelTwo(BestModel):
+    """Model for a two-group analysis"""
+
+    def __init__(self, y1, y2):
+        self.y1 = y1 = np.array(y1)
+        self.y2 = y2 = np.array(y2)
+
+        assert y1.ndim == 1
+        assert y2.ndim == 1
+
+        y_all = np.concatenate((y1, y2))
+
+        self.mu_loc = mu_loc = np.mean(y_all)
+        self.mu_scale = mu_scale = np.std(y_all) * 1000
+
+        self.sigma_low = sigma_low = np.std(y_all) / 1000
+        self.sigma_high = sigma_high = np.std(y_all) * 1000
+
+        self.nu_min = nu_min = 1
+        self.nu_mean = nu_mean = 30
+        self._nu_param = nu_mean - nu_min
+
+        with pm.Model() as self._model:
+            # Note: the IDE might give a warning for these because it thinks
+            #  distributions like pm.Normal() don't have a string "name" argument,
+            #  but this is false – pm.Distribution redefined __new__, so the
+            #  first argument indeed is the name (a string).
+            group1_mean = pm.Normal('Group 1 mean', mu=mu_loc, sd=mu_scale)
+            group2_mean = pm.Normal('Group 2 mean', mu=mu_loc, sd=mu_scale)
+
+            nu = pm.Exponential('nu - %g' % nu_min, 1 / (nu_mean - nu_min)) + nu_min
+            _ = pm.Deterministic('Normality', nu)
+
+            group1_sigma = pm.Uniform('Group 1 SD', lower=sigma_low, upper=sigma_high)
+            group2_sigma = pm.Uniform('Group 2 SD', lower=sigma_low, upper=sigma_high)
+
+            _ = pm.StudentT('Group 1 data', observed=y1, nu=nu, mu=group1_mean, sd=group1_sigma)
+            _ = pm.StudentT('Group 2 data', observed=y2, nu=nu, mu=group2_mean, sd=group2_sigma)
+
+            diff_of_means = pm.Deterministic('Difference of means', group1_mean - group2_mean)
+            _ = pm.Deterministic('Difference of SDs', group1_sigma - group2_sigma)
+            _ = pm.Deterministic('Effect size',
+                    diff_of_means / np.sqrt((group1_sigma ** 2 + group2_sigma ** 2) / 2))
+
+    @property
+    def version(self):
+        return 'v1'
+
+    @property
+    def model(self):
+        return self._model
+
+    def observed_data(self, group_id):
+        if group_id == 1:
+            return self.y1
+        elif group_id == 2:
+            return self.y2
+        else:
+            raise ValueError('Group ID for a two-group analysis must be 1 or 2')
+
+    def __repr__(self):
+        return 'BestModelTwo(y1=%r, y2=%r, version=%r)' \
+               % (self.y1, self.y2, self.version)
+
+    def __str__(self):
+        return ('μ1 ~ Normal({0.mu_loc:g}, {0.mu_scale:g})\n'
+                'μ2 ~ Normal({0.mu_loc:g}, {0.mu_scale:g})\n'
+                'σ1 ~ Uniform({0.sigma_low:g}, {0.sigma_high:g})\n'
+                'σ2 ~ Uniform({0.sigma_low:g}, {0.sigma_high:g})\n'
+                'ν ~ Exponential(1/{0._nu_param:g}) + {0.nu_min:g}\n'
+                'y1 ~ t(ν, μ1, σ1)\n'
+                'y2 ~ t(ν, μ2, σ2)\n'.format(self))
+
+
+class BestResults(ABC):
+    """Results of an analysis"""
+    def __init__(self, model: BestModel, trace: MultiTrace):
+        self._model = model
+        self._trace = trace
+
+    @property
+    def model(self):
+        return self._model
+
+    @property
+    def trace(self):
+        """The collection of posterior samples
+
+        See the relevant `PyMC3 documentation
+        <https://docs.pymc.io/api/inference.html#multitrace>`_ for details.
+        """
+        return self._trace
+
+    def observed_data(self, group_id):
+        return self.model.observed_data(group_id)
+
+    def summary(self, alpha=0.05):
+        """Return summary statistics of the results
+
+        Parameters
+        ----------
+        alpha : float
+            The highest posterior density intervals in the summary will cover
+             (1–alpha) * 100% of the probability mass.
+            For example, alpha=0.05 results in a 95% credible interval.
+            Default: 0.05.
+        """
+        return pm.summary(self.trace, alpha=alpha)
+
+    def hpd(self, var_name: str, alpha: float = 0.05):
+        """Calculate the highest posterior density (HPD) interval
+
+        This is a :math:`1 - \alpha` *credible interval* which contains the
+         most likely values of the parameter.
+
+        Parameters
+        ----------
+        var_name : str
+            Name of variable.
+        alpha : float
+            The HPD will cover (1–alpha) * 100% of the probability mass.
+            For example, alpha=0.05 results in a 95% credible interval.
+            Default: 0.05.
+
+        Returns
+        -------
+        (float, float)
+            The endpoints of the HPD
+        """
+        return tuple(pm.hpd(self.trace[var_name], alpha=alpha))
+
+    def posterior_mode(self,
+                       var_name: str):
+        """Calculate the posterior mode of a variable
+
+        Parameters
+        ----------
+        var_name : string
+            The name of the variable whose posterior mode is to be calculated.
+
+        Returns
+        -------
+        float
+            The posterior mode.
+        """
+        samples = self.trace[var_name]
+
+        # calculate mode using kernel density estimate
+        kernel = st.gaussian_kde(samples)
+
+        bw = kernel.covariance_factor()
+        cut = 3 * bw
+        x_low = np.min(samples) - cut * bw
+        x_high = np.max(samples) + cut * bw
+        n = 512
+        x = np.linspace(x_low, x_high, n)
+        vals = kernel.evaluate(x)
+        max_idx = np.argmax(vals)
+        mode_val = x[max_idx]
+
+        return mode_val
+
+
+class BestResultsOne(BestResults):
+    """Results of a two-group analysis"""
+
+    def __init__(self, model: BestModelOne, trace: MultiTrace):
+        super().__init__(model, trace)
+
+
+class BestResultsTwo(BestResults):
+    """Results of a two-group analysis"""
+
+    def __init__(self, model: BestModelTwo, trace: MultiTrace):
+        super().__init__(model, trace)
+
+    def observed_data(self, group_id):
+        return self.model.observed_data(group_id)
 
 
 def analyze_two(group1_data,
                 group2_data,
                 n_samples: int = 2000,
-                **kwargs):
+                **kwargs) -> BestResultsTwo:
     """Analyze the difference between two groups
 
     This analysis takes about a minute, depending on the amount of data.
@@ -115,30 +343,34 @@ def analyze_two(group1_data,
 
             best.analyze_two(group1_data, group2_data, tune=2000)
 
+    Returns
+    -------
+    BestResultsTwo
+        An object that contains all the posterior samples from the model.
+
     Notes
     -----
-    The first call of this function takes 2 minutes extra, in order to
+    The first call of this function takes about 2 minutes extra, in order to
     compile the model and speed up later calls.
 
     Afterwards, performing a two-group analysis takes:
      - 20 seconds with 45 data points per group, or
      - 90 seconds with 10,000 data points per group.
 
-    Don’t be intimidated by the time estimates in the beginning – the sampling
+    Don’t be taken aback by the time estimates in the beginning – the sampling
     process speeds up after the initial few hundred iterations.
 
     (These times were measured on a 2015 MacBook.)
     """
-    model = make_model_two_groups(group1_data, group2_data)
-    trace = perform_sampling(model, n_samples, kwargs)
-
-    return trace
+    model = BestModelTwo(group1_data, group2_data)
+    trace = model.sample(n_samples, **kwargs)
+    return BestResultsTwo(model, trace)
 
 
 def analyze_one(group_data,
                 ref_val: float = 0,
                 n_samples: int = 2000,
-                **kwargs):
+                **kwargs) -> BestResultsOne:
     """Analyze the distribution of a single group
 
     This method is typically used to compare some observations against a
@@ -166,24 +398,23 @@ def analyze_one(group_data,
         (from the default 1000) by::
 
             best.analyze_one(group_data, tune=2000)
+
+    Returns
+    -------
+    BestResultsOne
+        An object that contains all the posterior samples from the model.
+        See the `PyMC3 documentation
+        <https://docs.pymc.io/api/inference.html#multitrace>`_ for details.
+
+    Notes
+    -----
+    The first call of this function takes about 2 minutes extra, in order to
+    compile the model and speed up later calls.
+
+    Afterwards, performing a two-group analysis takes about 20 seconds on a
+    2015 MacBook, both with 20 and 1000 data points.
     """
-    model = make_model_one_group(group_data, ref_val)
-    trace = perform_sampling(model, n_samples, kwargs)
 
-    return trace
-
-
-def perform_sampling(model, n_samples, kwargs):
-    kwargs['tune'] = kwargs.get('tune', 1000)
-    kwargs['nuts_kwargs'] = kwargs.get('nuts_kwargs', {'target_accept': 0.90})
-    for _ in range(2):
-        with model:
-            trace = pm.sample(n_samples, **kwargs)
-
-        if trace.report.ok:
-            break
-        else:
-            kwargs['tune'] = 2000
-            print("\nDue to potentially incorrect estimates, rerunning sampling "
-                  "with {} tuning samples.\n".format(kwargs['tune']), file=sys.stderr)
-    return trace
+    model = BestModelOne(group_data, ref_val)
+    trace = model.sample(n_samples, **kwargs)
+    return BestResultsOne(model, trace)

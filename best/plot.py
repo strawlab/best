@@ -11,38 +11,37 @@ try:
     import matplotlib.pyplot as plt
 except ImportError:
     import matplotlib as mpl
-    mpl.rcParams["backend"] = "TkAgg"
+    mpl.rcParams['backend'] = 'TkAgg'
     import matplotlib.pyplot as plt
 
 import numpy as np
 import matplotlib.lines as mpllines
 from matplotlib.transforms import blended_transform_factory
-from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import LogFormatter
 import pymc3 as pm
-from pymc3.backends.base import MultiTrace
 import scipy.stats as st
 
-from .utils import posterior_mode
+from .model import BestResults, BestResultsOne, BestResultsTwo
 
 PRETTY_BLUE = '#89d1ea'
 
 
-def plot_posterior(best_out: MultiTrace,
-                   variable_name: str,
+def plot_posterior(best_results: BestResults,
+                   var_name: str,
                    ax: Optional[plt.Axes] = None,
                    bins: Union[int, list, np.ndarray] = 30,
                    stat: str = 'mode',
                    title: Optional[str] = None,
                    label: Optional[str] = None,
-                   draw_zero: bool = False,
+                   ref_val: Optional[float] = None,
                    **kwargs):
     """Plot a histogram of posterior samples of a variable
 
     Parameters
     ----------
-    best_out : PyMC3 MultiTrace
+    best_results : BestResults
         The result of the analysis.
-    variable_name : string
+    var_name : string
         The name of the variable to be plotted.
     ax : Matplotlib Axes, optional
         If not None, the Matplotlib Axes instance to be used.
@@ -60,8 +59,10 @@ def plot_posterior(best_out: MultiTrace,
         Title of the plot. Default: don’t print a title.
     label : string, optional
         Label of the *x* axis. Default: don’t print a label.
-    draw_zero : bool
-        Whether to print a vertical line for the zero value.
+    ref_val : float, optional
+        If not None, print a vertical line at this reference value (typically
+        zero).
+        Default: None (don’t print a reference value)
     **kwargs : dict
         All other keyword arguments are passed to `plt.hist`.
 
@@ -81,12 +82,8 @@ def plot_posterior(best_out: MultiTrace,
         >>> ax = best.plot_posterior(best_out, 'Group 1 mean', color='green')
         >>> plt.show()
     """
-    samples = best_out.get_values(variable_name)
-    if stat == 'mode':
-        stat_val = posterior_mode(best_out, variable_name)
-    elif stat == 'mean':
-        stat_val = np.mean(samples)
-    hdi_min, hdi_max = pm.hpd(samples, alpha=0.05)
+    samples = best_results.trace[var_name]
+    trans = blended_transform_factory(ax.transData, ax.transAxes)
 
     if ax is None:
         _, ax = plt.subplots()
@@ -96,16 +93,27 @@ def plot_posterior(best_out: MultiTrace,
     ax.hist(samples, rwidth=0.8,
             facecolor=PRETTY_BLUE, edgecolor='none', **hist_kwargs)
 
-    trans = blended_transform_factory(ax.transData, ax.transAxes)
-    ax.text(stat_val, 0.99, '%s = %.3g' % (stat, stat_val),
-            transform=trans,
-            horizontalalignment='center',
-            verticalalignment='top',
-            )
-    if draw_zero:
-        ax.axvline(0, linestyle=':')
+    if stat:
+        if stat == 'mode':
+            stat_val = best_results.posterior_mode(var_name)
+        elif stat == 'mean':
+            stat_val = np.mean(samples)
+        else:
+            raise ValueError('stat parameter must be either "mean" or "mode" '
+                             'or None.')
+
+        ax.text(stat_val, 0.99, '%s = %.3g' % (stat, stat_val),
+                transform=trans,
+                horizontalalignment='center',
+                verticalalignment='top',
+                )
+
+    if ref_val is not None:
+        ax.axvline(ref_val, linestyle=':')
 
     # plot HDI
+    hdi_min, hdi_max = pm.hpd(samples, alpha=0.05)
+
     hdi_line, = ax.plot([hdi_min, hdi_max], [0, 0],
                         lw=5.0, color='k')
     hdi_line.set_clip_on(False)
@@ -142,8 +150,29 @@ def plot_posterior(best_out: MultiTrace,
     return ax
 
 
-def plot_data_and_prediction(best_out: MultiTrace,
-                             group_data,
+def plot_normality_posterior(best_results, ax, bins, title):
+    # TODO merge it into plot_posterior, with a log_x: bool = False parameter
+    #  Then we could also center the "95% HPD" text on the log scale.
+
+    samples = best_results.trace['Normality']
+    norm_bins = np.logspace(0,
+                            np.log10(pm.hpd(samples, alpha=0.005)[-1] * 1.2),
+                            num=bins + 1)
+    plot_posterior(best_results,
+                   'Normality',
+                   ax=ax,
+                   bins=norm_bins,
+                   title=title,
+                   label=r'$\nu$')
+    ax.set_xlim(0.901, norm_bins[-1] * 1.2)
+    ax.semilogx()
+    # don't use scientific notation for tick labels
+    tick_fmt = LogFormatter()
+    ax.xaxis.set_major_formatter(tick_fmt)
+    ax.xaxis.set_minor_formatter(tick_fmt)
+
+
+def plot_data_and_prediction(best_results: BestResults,
                              group_id: int = 1,
                              ax: plt.Axes = None,
                              bins: Union[int, list, np.ndarray] = 30,
@@ -157,17 +186,15 @@ def plot_data_and_prediction(best_out: MultiTrace,
 
     Parameters
     ----------
-    best_out
+    best_results
         The result of the analysis.
-    group_data : list of numbers, NumPy array, or Pandas Series.
-        Data of the group to be plotted.
     group_id : {1, 2}
         Which group to plot (1 or 2).
     ax : Matplotlib Axes, optional
         If not None, the Matplotlib Axes instance to be used.
         Default: create a new plot.
     title : string, optional.
-        Title of the plot. Default: don’t print a title.
+        Title of the plot. Default: no plot title.
     bins : int or list or NumPy array.
         The number or edges of the bins used for the histogram of the data.
         If an integer, the number of bins to use.
@@ -193,15 +220,19 @@ def plot_data_and_prediction(best_out: MultiTrace,
     set the limits of the *x* axis to 85 and 115:
 
         >>> import matplotlib as plt
-        >>> ax = best.plot_data_and_prediction(best_out, placebo, 2,
-        ...                                    hist_kwargs={'hatch':'...'})
+        >>> ax = best.plot_data_and_prediction(
+        ...         best_out,
+        ...         2,
+        ...         hist_kwargs={'hatch':'...'}
+        ... )
         >>> ax.set_xlim(85, 115)
         >>> plt.show()
 
     Notes
     -----
     You can move the histogram in front of the predictive curves by passing
-    ``hist_kwargs={'zorder': 10}`` as an argument.
+    ``hist_kwargs={'zorder': 10}`` as an argument, or completely behind the
+    curves with ``hist_kwargs={'zorder': 0}``.
 
     If the plot is large enough, it is suggested to put a legend on it, by
     calling ``ax.legend()`` afterwards.
@@ -210,12 +241,19 @@ def plot_data_and_prediction(best_out: MultiTrace,
     if ax is None:
         _, ax = plt.subplots()
 
-    if group_id not in [1, 2]:
-        raise ValueError("group_id argument must be either 1 or 2")
+    group_data = best_results.observed_data(group_id)
+    trace = best_results.trace
 
-    means = best_out.get_values('Group {} mean'.format(group_id))
-    stds = best_out.get_values('Group {} SD'.format(group_id))
-    nus = best_out.get_values('Normality')
+    if isinstance(best_results, BestResultsTwo):
+        means = trace['Group %d mean' % group_id]
+        stds = trace['Group %d SD' % group_id]
+        nus = trace['Normality']
+    elif isinstance(best_results, BestResultsOne):
+        means = trace['Mean']
+        stds = trace['SD']
+        nus = trace['Normality']
+    else:
+        raise ValueError('Unknown type of best_results argument')
 
     n_curves = 50
     n_samps = len(means)
@@ -267,7 +305,7 @@ def plot_data_and_prediction(best_out: MultiTrace,
     ax.spines['left'].set_color('gray')
     ax.set_xlabel('Observation')
     ax.set_xlim(xmin, xmax)
-    ax.set_ylabel('Probability of observation')
+    ax.set_ylabel('Probability')
     ax.set_yticklabels([])
     ax.set_ylim(0)
     if title:
@@ -276,31 +314,25 @@ def plot_data_and_prediction(best_out: MultiTrace,
     return ax
 
 
-def plot_all(best_out: MultiTrace,
-             group1_data,
-             group2_data,
-             bins: int = 30,
-             group1_name: str = 'Group 1',
-             group2_name: str = 'Group 2'):
-    """Plot posteriors of every parameter and observation.
-
-    TODO: Currently only works with two-group analysis.
+def plot_all_two(best_results: BestResultsTwo,
+                 bins: int = 30,
+                 group1_name: str = 'Group 1',
+                 group2_name: str = 'Group 2') -> plt.Figure:
+    """Plot posteriors of every parameter and observation of a two-group analysis.
 
     Parameters
     ----------
-    best_out : PyMC3 MultiTrace
+    best_results : BestResultsTwo
         The result of the analysis.
-    group1_data : list of numbers, NumPy array, or Pandas Series.
-        Data of the first group analyzed and to be plotted.
-    group2_data : list of numbers, NumPy array, or Pandas Series.
-        Data of the second group analyzed and to be plotted.
     bins : int
         The number of bins to be used for the histograms.
         Default: 30.
     group1_name : string
-        Group name of first group to be used in the title. Default: "Group 1".
+        Name of the first group, to be used in the titles.
+        Default: "Group 1".
     group2_name : string
-        Group name of second group to be used in the title. Default: "Group 2".
+        Name of the second group, to be used in the titles.
+        Default: "Group 2".
 
     Returns
     -------
@@ -308,116 +340,200 @@ def plot_all(best_out: MultiTrace,
         The created figure. (The separate plots can be accessed via
         ``fig.axes``, where ``fig`` is the return value of this function.)
     """
-    assert type(bins) is int, "bins argument must be an integer."
+    assert type(bins) is int, 'bins argument must be an integer.'
 
-    posterior_mean1 = best_out.get_values('Group 1 mean')
-    posterior_mean2 = best_out.get_values('Group 2 mean')
+    trace = best_results.trace
+
+    posterior_mean1 = trace['Group 1 mean']
+    posterior_mean2 = trace['Group 2 mean']
 
     posterior_means = np.concatenate((posterior_mean1, posterior_mean2))
     _, bin_edges_means = np.histogram(posterior_means, bins=bins)
 
-    posterior_std1 = best_out.get_values('Group 1 SD')
-    posterior_std2 = best_out.get_values('Group 2 SD')
+    posterior_std1 = trace['Group 1 SD']
+    posterior_std2 = trace['Group 2 SD']
 
     posterior_stds = np.concatenate((posterior_std1, posterior_std2))
     _, bin_edges_stds = np.histogram(posterior_stds, bins=bins)
-
-    posterior_normality = best_out.get_values('Normality')
 
     fig, axes = plt.subplots(5, 2, figsize=(8.2, 11))
 
     axes[0, 0].get_shared_x_axes().join(axes[0, 0], axes[1, 0])
 
-    plot_posterior(best_out,
+    plot_posterior(best_results,
                    'Group 1 mean',
                    ax=axes[0, 0],
                    bins=bin_edges_means,
                    stat='mean',
-                   title='%s Mean' % group1_name,
+                   title='%s mean' % group1_name,
                    label=r'$\mu_1$')
 
-    plot_posterior(best_out,
+    plot_posterior(best_results,
                    'Group 2 mean',
                    ax=axes[1, 0],
                    bins=bin_edges_means,
                    stat='mean',
-                   title='%s Mean' % group2_name,
+                   title='%s mean' % group2_name,
                    label=r'$\mu_2$')
 
     axes[2, 0].get_shared_x_axes().join(axes[2, 0], axes[3, 0])
 
-    plot_posterior(best_out,
+    plot_posterior(best_results,
                    'Group 1 SD',
                    ax=axes[2, 0],
                    bins=bin_edges_stds,
-                   title='%s Std. Dev.' % group1_name,
+                   title='%s std. dev.' % group1_name,
                    label=r'$\sigma_1$')
 
-    plot_posterior(best_out,
+    plot_posterior(best_results,
                    'Group 2 SD',
                    ax=axes[3, 0],
                    bins=bin_edges_stds,
-                   title='%s Std. Dev.' % group2_name,
+                   title='%s std. dev.' % group2_name,
                    label=r'$\sigma_2$')
 
-    norm_bins = np.logspace(
-            0,
-            np.log10(pm.hpd(posterior_normality, alpha=0.005)[-1] * 1.2),
-            num = bins + 1
-    )
-    plot_posterior(best_out,
-                   'Normality',
-                   ax=axes[4, 0],
-                   bins=norm_bins,
-                   title='Normality',
-                   label=r'$\nu$')
-    axes[4, 0].set_xlim(0.8, norm_bins[-1] * 1.2)
-    axes[4, 0].semilogx()
-    tick_fmt = FuncFormatter(lambda x, _: str(int(x)) if x >= 1 else None)
-    axes[4, 0].xaxis.set_major_formatter(tick_fmt)
-    axes[4, 0].xaxis.set_minor_formatter(tick_fmt)
+    plot_normality_posterior(best_results, axes[4, 0], bins, 'Normality')
 
-    plot_posterior(best_out,
+    plot_posterior(best_results,
                    'Difference of means',
                    ax=axes[2, 1],
                    bins=bins,
-                   title='Difference of Means',
+                   title='Difference of means',
                    stat='mean',
-                   draw_zero=True,
+                   ref_val=0,
                    label=r'$\mu_1 - \mu_2$')
 
-    plot_posterior(best_out,
+    plot_posterior(best_results,
                    'Difference of SDs',
                    ax=axes[3, 1],
                    bins=bins,
-                   title='Difference of Std. Dev.s',
-                   draw_zero=True,
+                   title='Difference of std. dev.s',
+                   ref_val=0,
                    label=r'$\sigma_1 - \sigma_2$')
 
-    plot_posterior(best_out,
+    plot_posterior(best_results,
                    'Effect size',
                    ax=axes[4, 1],
                    bins=bins,
-                   title='Effect Size',
-                   draw_zero=True,
+                   title='Effect size',
+                   ref_val=0,
                    label=r'$(\mu_1 - \mu_2) /'
                           r' \sqrt{(\sigma_1^2 + \sigma_2^2)/2}$')
 
-    orig_vals = np.concatenate((group1_data, group2_data))
-    bin_edges = np.linspace(np.min(orig_vals), np.max(orig_vals), bins + 1)
+    group1_data = best_results.observed_data(1)
+    group2_data = best_results.observed_data(2)
+    obs_vals = np.concatenate((group1_data, group2_data))
+    bin_edges = np.linspace(np.min(obs_vals), np.max(obs_vals), bins + 1)
 
     axes[0, 1].get_shared_x_axes().join(axes[0, 1], axes[1, 1])
-    axes[0, 1].get_shared_y_axes().join(axes[0, 1], axes[1, 1])
 
-    plot_data_and_prediction(best_out, group1_data, 1,
-                             ax=axes[0, 1], bins=bin_edges,
-                             title='%s Data with Post. Pred.' % group1_name)
+    plot_data_and_prediction(best_results, 1,
+                             ax=axes[0, 1],
+                             bins=bin_edges,
+                             title='%s data with post. pred.' % group1_name)
 
-    plot_data_and_prediction(best_out, group2_data, 2,
-                             ax=axes[1, 1], bins=bin_edges,
-                             title = '%s Data with Post. Pred.' % group2_name)
+    plot_data_and_prediction(best_results, 2,
+                             ax=axes[1, 1],
+                             bins=bin_edges,
+                             title='%s data with post. pred.' % group2_name)
 
-    fig.subplots_adjust(hspace=0.82, top=0.97, bottom=0.06,
-                        left=0.09, right=0.95, wspace=0.45)
+    fig.tight_layout()
 
     return fig
+
+
+def plot_all_one(best_results: BestResultsOne,
+                 bins: int = 30,
+                 group_name: Optional[str] = None) -> plt.Figure:
+    """Plot posteriors of every parameter and observation of a two-group analysis.
+
+    Parameters
+    ----------
+    best_results : BestResultsOne
+        The result of the analysis.
+    bins : int
+        The number of bins to be used for the histograms.
+        Default: 30.
+    group_name : string, optional
+        If not None, group name to be used in the title, e.g. if
+         ``group_name`` is ``"eTRF day 5"`` then the plot for the mean is titled
+         “eTRF day 5 mean”.
+        If None, then group name is omitted from the titles, resulting in
+         e.g. “Mean”.
+        Default: None.
+
+    Returns
+    -------
+    plt.Figure
+        The created figure. (The separate plots can be accessed via
+        ``fig.axes``, where ``fig`` is the return value of this function.)
+    """
+    assert type(bins) is int, 'bins argument must be an integer.'
+
+    def maybe_caps(title):
+        if group_name:
+            return group_name + ' ' + title
+        else:
+            return title.capitalize()
+
+    fig, axes = plt.subplots(3, 2, figsize=(8.2, 6.6))
+
+    plot_posterior(best_results,
+                   'Mean',
+                   ax=axes[0, 0],
+                   bins=bins,
+                   stat='mean',
+                   title=maybe_caps('mean'),
+                   label=r'$\mu$')
+
+    plot_posterior(best_results,
+                   'SD',
+                   ax=axes[0, 1],
+                   bins=bins,
+                   title=maybe_caps('std. dev.'),
+                   label=r'$\sigma$')
+
+    plot_normality_posterior(best_results,
+                             axes[1, 0],
+                             bins,
+                             maybe_caps('normality'))
+
+    ref_val = best_results.model.ref_val
+    if ref_val == 0:
+        label = r'$\mu / \sigma$'
+    else:
+        label = r'$(\mu - %.1f) / \sigma$' % ref_val
+
+    plot_posterior(best_results,
+                   'Effect size',
+                   ax=axes[1, 1],
+                   bins=bins,
+                   title=maybe_caps('effect size'),
+                   ref_val=ref_val,
+                   label=label)
+
+    plot_data_and_prediction(best_results, 1,
+                             ax=axes[2, 0],
+                             bins=bins,
+                             title=maybe_caps('data with post. pred.'))
+
+    fig.delaxes(axes[2, 1])
+    fig.tight_layout()
+
+    return fig
+
+
+def plot_all(best_results: BestResults,
+             *args,
+             **kwargs) -> plt.Figure:
+    """Plot posteriors of every parameter and observation of an analysis.
+
+    Depending on the type of best_results, this call is equivalent to calling
+    :func:`plot_all_one` or :func:`plot_all_two`.
+    """
+    if isinstance(best_results, BestResultsOne):
+        return plot_all_one(best_results, *args, **kwargs)
+    elif isinstance(best_results, BestResultsTwo):
+        return plot_all_two(best_results, *args, **kwargs)
+    else:
+        raise ValueError('best_results argument is of unknown type')
