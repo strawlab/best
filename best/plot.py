@@ -23,6 +23,8 @@ import scipy.stats as st
 
 from .model import BestResults, BestResultsOne, BestResultsTwo
 
+# Only 99.5% of the samples are displayed, to prevent the long tails
+DISPLAYED_ALPHA = 0.005
 PRETTY_BLUE = '#89d1ea'
 
 
@@ -83,6 +85,9 @@ def plot_posterior(best_results: BestResults,
         >>> plt.show()
     """
     samples = best_results.trace[var_name]
+    samples_min, samples_max = best_results.hpd(var_name, DISPLAYED_ALPHA)
+    samples = samples[(samples_min <= samples) * (samples <= samples_max)]
+
     trans = blended_transform_factory(ax.transData, ax.transAxes)
 
     if ax is None:
@@ -155,8 +160,8 @@ def plot_normality_posterior(best_results, ax, bins, title):
     #  Then we could also center the "95% HPD" text on the log scale.
 
     samples = best_results.trace['Normality']
-    norm_bins = np.logspace(0,
-                            np.log10(pm.hpd(samples, alpha=0.005)[-1] * 1.2),
+    norm_bins = np.logspace(np.log10(best_results.model.nu_min),
+                            np.log10(pm.hpd(samples, alpha=DISPLAYED_ALPHA)[-1]),
                             num=bins + 1)
     plot_posterior(best_results,
                    'Normality',
@@ -164,7 +169,7 @@ def plot_normality_posterior(best_results, ax, bins, title):
                    bins=norm_bins,
                    title=title,
                    label=r'$\nu$')
-    ax.set_xlim(0.901, norm_bins[-1] * 1.2)
+    ax.set_xlim(2.4, norm_bins[-1] * 1.05)
     ax.semilogx()
     # don't use scientific notation for tick labels
     tick_fmt = LogFormatter()
@@ -246,11 +251,11 @@ def plot_data_and_prediction(best_results: BestResults,
 
     if isinstance(best_results, BestResultsTwo):
         means = trace['Group %d mean' % group_id]
-        stds = trace['Group %d SD' % group_id]
+        sigmas = trace['Group %d sigma' % group_id]
         nus = trace['Normality']
     elif isinstance(best_results, BestResultsOne):
         means = trace['Mean']
-        stds = trace['SD']
+        sigmas = trace['Sigma']
         nus = trace['Normality']
     else:
         raise ValueError('Unknown type of best_results argument')
@@ -276,7 +281,7 @@ def plot_data_and_prediction(best_results: BestResults,
     kwargs.update(prediction_kwargs)
 
     for i in idxs:
-        v = st.t.pdf(x, nus[i], means[i], stds[i])
+        v = st.t.pdf(x, nus[i], means[i], sigmas[i])
         line, = ax.plot(x, v, **kwargs)
 
     line.set_label('Prediction')
@@ -306,7 +311,7 @@ def plot_data_and_prediction(best_results: BestResults,
     ax.set_xlabel('Observation')
     ax.set_xlim(xmin, xmax)
     ax.set_ylabel('Probability')
-    ax.set_yticklabels([])
+    ax.set_yticks([])
     ax.set_ylim(0)
     if title:
         ax.set_title(title)
@@ -353,8 +358,13 @@ def plot_all_two(best_results: BestResultsTwo,
     posterior_std1 = trace['Group 1 SD']
     posterior_std2 = trace['Group 2 SD']
 
-    posterior_stds = np.concatenate((posterior_std1, posterior_std2))
-    _, bin_edges_stds = np.histogram(posterior_stds, bins=bins)
+    std1_min, std1_max = best_results.hpd('Group 1 SD', DISPLAYED_ALPHA)
+    std2_min, std2_max = best_results.hpd('Group 2 SD', DISPLAYED_ALPHA)
+    std_min = min(std1_min, std2_min)
+    std_max = max(std1_max, std2_max)
+    stds = np.concatenate((posterior_std1, posterior_std2))
+    stds = stds[(std_min <= stds) * (stds <= std_max)]
+    _, bin_edges_stds = np.histogram(stds, bins=bins)
 
     fig, axes = plt.subplots(5, 2, figsize=(8.2, 11))
 
@@ -383,14 +393,14 @@ def plot_all_two(best_results: BestResultsTwo,
                    ax=axes[2, 0],
                    bins=bin_edges_stds,
                    title='%s std. dev.' % group1_name,
-                   label=r'$\sigma_1$')
+                   label=r'$\mathrm{sd}_1$')
 
     plot_posterior(best_results,
                    'Group 2 SD',
                    ax=axes[3, 0],
                    bins=bin_edges_stds,
                    title='%s std. dev.' % group2_name,
-                   label=r'$\sigma_2$')
+                   label=r'$\mathrm{sd}_2$')
 
     plot_normality_posterior(best_results, axes[4, 0], bins, 'Normality')
 
@@ -409,7 +419,7 @@ def plot_all_two(best_results: BestResultsTwo,
                    bins=bins,
                    title='Difference of std. dev.s',
                    ref_val=0,
-                   label=r'$\sigma_1 - \sigma_2$')
+                   label=r'$\mathrm{sd}_1 - \mathrm{sd}_2$')
 
     plot_posterior(best_results,
                    'Effect size',
@@ -418,7 +428,7 @@ def plot_all_two(best_results: BestResultsTwo,
                    title='Effect size',
                    ref_val=0,
                    label=r'$(\mu_1 - \mu_2) /'
-                          r' \sqrt{(\sigma_1^2 + \sigma_2^2)/2}$')
+                          r' \sqrt{(\mathrm{sd}_1^2 + \mathrm{sd}_2^2)/2}$')
 
     group1_data = best_results.observed_data(1)
     group2_data = best_results.observed_data(2)

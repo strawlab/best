@@ -93,7 +93,7 @@ class BestModelOne(BestModel):
         self.sigma_low = sigma_low = np.std(y) / 1000
         self.sigma_high = sigma_high = np.std(y) * 1000
 
-        self.nu_min = nu_min = 1
+        self.nu_min = nu_min = 2.5
         self.nu_mean = nu_mean = 30
         self._nu_param = nu_mean - nu_min
 
@@ -103,15 +103,18 @@ class BestModelOne(BestModel):
             #  but this is false – pm.Distribution redefined __new__, so the
             #  first argument indeed is the name (a string).
             mean = pm.Normal('Mean', mu=mu_loc, sd=mu_scale)
-            stddev = pm.Uniform('SD', lower=sigma_low, upper=sigma_high)
+            logsigma = pm.Uniform('Log sigma', lower=np.log(sigma_low), upper=np.log(sigma_high))
+            sigma = pm.Deterministic('Sigma', np.exp(logsigma))
+            prec = sigma ** (-2)
             nu = pm.Exponential('nu - %g' % nu_min, 1 / (nu_mean - nu_min)) + nu_min
             _ = pm.Deterministic('Normality', nu)
-            _ = pm.StudentT('Data', observed=y, nu=nu, mu=mean, sd=stddev)
+            _ = pm.StudentT('Data', observed=y, nu=nu, mu=mean, lam=prec)
+            stddev = pm.Deterministic('SD', sigma * (nu / (nu - 2)) ** 0.5)
             _ = pm.Deterministic('Effect size', (mean - ref_val) / stddev)
 
     @property
     def version(self):
-        return 'v1'
+        return 'v2'
 
     @property
     def model(self):
@@ -129,7 +132,7 @@ class BestModelOne(BestModel):
 
     def __str__(self):
         return ('μ ~ Normal({0.mu_loc:.2e}, {0.mu_scale:.2e})\n'
-                'σ ~ Uniform({0.sigma_low:g}, {0.sigma_high:g})\n'
+                'log(σ) ~ Uniform(log({0.sigma_low:g}), log({0.sigma_high:g}))\n'
                 'ν ~ Exponential(1/{0._nu_param:g}) + {0.nu_min:g}\n'
                 'y ~ t(ν, μ, σ)\n'.format(self))
 
@@ -152,7 +155,7 @@ class BestModelTwo(BestModel):
         self.sigma_low = sigma_low = np.std(y_all) / 1000
         self.sigma_high = sigma_high = np.std(y_all) * 1000
 
-        self.nu_min = nu_min = 1
+        self.nu_min = nu_min = 2.5
         self.nu_mean = nu_mean = 30
         self._nu_param = nu_mean - nu_min
 
@@ -167,20 +170,28 @@ class BestModelTwo(BestModel):
             nu = pm.Exponential('nu - %g' % nu_min, 1 / (nu_mean - nu_min)) + nu_min
             _ = pm.Deterministic('Normality', nu)
 
-            group1_sigma = pm.Uniform('Group 1 SD', lower=sigma_low, upper=sigma_high)
-            group2_sigma = pm.Uniform('Group 2 SD', lower=sigma_low, upper=sigma_high)
+            group1_logsigma = pm.Uniform('Group 1 log sigma', lower=np.log(sigma_low), upper=np.log(sigma_high))
+            group2_logsigma = pm.Uniform('Group 2 log sigma', lower=np.log(sigma_low), upper=np.log(sigma_high))
+            group1_sigma = pm.Deterministic('Group 1 sigma', np.exp(group1_logsigma))
+            group2_sigma = pm.Deterministic('Group 2 sigma', np.exp(group2_logsigma))
 
-            _ = pm.StudentT('Group 1 data', observed=y1, nu=nu, mu=group1_mean, sd=group1_sigma)
-            _ = pm.StudentT('Group 2 data', observed=y2, nu=nu, mu=group2_mean, sd=group2_sigma)
+            lambda1 = group1_sigma ** (-2)
+            lambda2 = group2_sigma ** (-2)
+
+            group1_sd = pm.Deterministic('Group 1 SD', group1_sigma * (nu / (nu - 2)) ** 0.5)
+            group2_sd = pm.Deterministic('Group 2 SD', group2_sigma * (nu / (nu - 2)) ** 0.5)
+
+            _ = pm.StudentT('Group 1 data', observed=y1, nu=nu, mu=group1_mean, lam=lambda1)
+            _ = pm.StudentT('Group 2 data', observed=y2, nu=nu, mu=group2_mean, lam=lambda2)
 
             diff_of_means = pm.Deterministic('Difference of means', group1_mean - group2_mean)
-            _ = pm.Deterministic('Difference of SDs', group1_sigma - group2_sigma)
+            _ = pm.Deterministic('Difference of SDs', group1_sd - group2_sd)
             _ = pm.Deterministic('Effect size',
-                    diff_of_means / np.sqrt((group1_sigma ** 2 + group2_sigma ** 2) / 2))
+                    diff_of_means / np.sqrt((group1_sd ** 2 + group2_sd ** 2) / 2))
 
     @property
     def version(self):
-        return 'v1'
+        return 'v2'
 
     @property
     def model(self):
@@ -201,8 +212,8 @@ class BestModelTwo(BestModel):
     def __str__(self):
         return ('μ1 ~ Normal({0.mu_loc:g}, {0.mu_scale:g})\n'
                 'μ2 ~ Normal({0.mu_loc:g}, {0.mu_scale:g})\n'
-                'σ1 ~ Uniform({0.sigma_low:g}, {0.sigma_high:g})\n'
-                'σ2 ~ Uniform({0.sigma_low:g}, {0.sigma_high:g})\n'
+                'log(σ1) ~ Uniform(log({0.sigma_low:g}), log({0.sigma_high:g}))\n'
+                'log(σ2) ~ Uniform(log({0.sigma_low:g}), log({0.sigma_high:g}))\n'
                 'ν ~ Exponential(1/{0._nu_param:g}) + {0.nu_min:g}\n'
                 'y1 ~ t(ν, μ1, σ1)\n'
                 'y2 ~ t(ν, μ2, σ2)\n'.format(self))
