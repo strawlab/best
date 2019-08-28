@@ -187,8 +187,3 @@ def perform_sampling(model, n_samples, kwargs):
             print("\nDue to potentially incorrect estimates, rerunning sampling "
                   "with {} tuning samples.\n".format(kwargs['tune']), file=sys.stderr)
     return trace
-
-
-# We make an alias for pm.summary() too so that the user doesn't need to import
-#  the `pymc3` module explicitly.
-summary = pm.summary

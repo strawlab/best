@@ -18,7 +18,10 @@ placebo = [99, 101, 100, 101, 102, 100, 97, 101, 104, 101, 102, 102, 100, 105, 8
            104, 100, 100, 100, 101, 102, 103, 97, 101, 101, 100, 101, 99, 101, 100, 100,
            101, 100, 99, 101, 100, 102, 99, 100, 99]
 
-best_out = best.two_groups(drug, placebo)
+print("Performing Bayesian analysis of the two groups.\n"
+      "This might take a while...")
+
+best_out = best.analyze_two(drug, placebo)
 
 fig = best.plot_all(best_out, drug, placebo)
 fig.savefig('smart_drug.png', dpi=70)

@@ -1,19 +1,20 @@
-from .model import (analyze_two,
-                    analyze_one,
-                    summary)
+from .model import analyze_one, analyze_two
 from .plot import (plot_all,
                    plot_posterior,
                    plot_data_and_prediction,
                    PRETTY_BLUE)
-from .utils import calculate_sample_statistics
-
+from .utils import (hpd,
+                    posterior_mode,
+                    summary,
+                    )
 
 __all__ = [
-    "calculate_sample_statistics",
+    "analyze_one",
+    "analyze_two",
     "plot_all",
     "plot_posterior",
     "plot_data_and_prediction",
+    "hpd",
+    "posterior_mode",
     "summary",
-    "analyze_two",
-    "analyze_one",
 ]

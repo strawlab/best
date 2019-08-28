@@ -1,15 +1,28 @@
 import numpy as np
 import pymc3 as pm
+from pymc3.backends.base import MultiTrace
 import scipy.stats
 
 
-def calculate_sample_statistics(sample_vec):
-    hdi_min, hdi_max = pm.hpd(sample_vec, alpha=0.05)
+def posterior_mode(best_out: MultiTrace,
+                   variable_name: str):
+    """Calculate the posterior mode of a variable
 
-    # calculate mean
-    mean_val = np.mean(sample_vec)
+    Parameters
+    ----------
+    best_out : PyMC3 MultiTrace
+        The result of the analysis.
+    variable_name : string
+        The name of the variable whose posterior mode is to be calculated.
 
-    # calculate mode (use kernel density estimate)
+    Returns
+    -------
+    float
+        The posterior mode.
+    """
+    sample_vec = best_out.get_values(variable_name)
+
+    # calculate mode using kernel density estimate
     kernel = scipy.stats.gaussian_kde(sample_vec)
 
     bw = kernel.covariance_factor()
@@ -22,8 +35,10 @@ def calculate_sample_statistics(sample_vec):
     max_idx = np.argmax(vals)
     mode_val = x[max_idx]
 
-    return {'hdi_min': hdi_min,
-            'hdi_max': hdi_max,
-            'mean': mean_val,
-            'mode': mode_val,
-            }
+    return mode_val
+
+
+# We make an alias for these functions so that the user doesn't need to import
+#  the `pymc3` module explicitly.
+summary = pm.summary
+hpd = pm.hpd
