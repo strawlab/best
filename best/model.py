@@ -27,23 +27,26 @@ class BestModel(ABC):
     @property
     @abstractmethod
     def version(self):
-        """Version of the model specification"""
+        """Version of the model specification
+
+        For details, see the page :ref:`ch-model-history`.
+        """
         pass
 
     @property
     @abstractmethod
-    def model(self):
+    def model(self) -> pm.Model:
         """The underlying PyMC3 Model object
 
-        (This property is accessible mostly for internal purposes.)
+        (This property is accessible primarily for internal purposes.)
         """
         pass
 
     @abstractmethod
     def observed_data(self, group_id):
-        """Return the observed data (as a NumPy array)
+        """Return the observed data as a NumPy array
 
-        (This property is accessible mostly for internal purposes.)
+        (This property is accessible primarily for internal purposes.)
         """
         pass
 
@@ -54,7 +57,7 @@ class BestModel(ABC):
     def sample(self, n_samples: int, **kwargs) -> MultiTrace:
         """Draw posterior samples from the model
 
-        (This function is accessible primarily for internal purposes.)
+        (This method is accessible primarily for internal purposes.)
         """
 
         kwargs['tune'] = kwargs.get('tune', 1000)
@@ -79,7 +82,7 @@ class BestModel(ABC):
 
 
 class BestModelOne(BestModel):
-    """Model for a single-group analysis"""
+    """Model for a single-group analysis; subclass of :class:`BestModel`"""
 
     def __init__(self, y, ref_val):
         self.y = y = np.array(y)
@@ -138,7 +141,7 @@ class BestModelOne(BestModel):
 
 
 class BestModelTwo(BestModel):
-    """Model for a two-group analysis"""
+    """Model for a two-group analysis; subclass of :class:`BestModel`"""
 
     def __init__(self, y1, y2):
         self.y1 = y1 = np.array(y1)
@@ -230,7 +233,7 @@ class BestResults(ABC):
         return self._model
 
     @property
-    def trace(self):
+    def trace(self) -> MultiTrace:
         """The collection of posterior samples
 
         See the relevant `PyMC3 documentation
@@ -248,7 +251,7 @@ class BestResults(ABC):
         ----------
         alpha : float
             The highest posterior density intervals in the summary will cover
-             (1–alpha) * 100% of the probability mass.
+            (1–alpha) * 100% of the probability mass.
             For example, alpha=0.05 results in a 95% credible interval.
             Default: 0.05.
         """
@@ -257,8 +260,8 @@ class BestResults(ABC):
     def hpd(self, var_name: str, alpha: float = 0.05):
         """Calculate the highest posterior density (HPD) interval
 
-        This is a :math:`1 - \alpha` *credible interval* which contains the
-         most likely values of the parameter.
+        This is a 1-alpha *credible interval* which contains the
+        most likely values of the parameter.
 
         Parameters
         ----------
@@ -308,14 +311,16 @@ class BestResults(ABC):
         Notes
         -----
         If *p* is the result and *S* is the total number of samples, then the
-         standard deviation of the result is :math:`\sqrt{p(1-p)/S}`
-         (see BDA3, p. 267). For example, with 2000 samples, the errors for
-         some returned probabilities are
-          - 0.01 ± 0.002,
-          - 0.1 ± 0.007,
-          - 0.2 ± 0.009,
-          - 0.5 ± 0.011,
-         meaning the answer is accurate for most practical purposes.
+        standard deviation of the result is :math:`\sqrt{p(1-p)/S}`
+        (see BDA3, p. 267). For example, with 2000 samples, the errors for
+        some returned probabilities are
+
+         - 0.01 ± 0.002,
+         - 0.1 ± 0.007,
+         - 0.2 ± 0.009,
+         - 0.5 ± 0.011,
+
+        meaning the answer is accurate for most practical purposes.
         """
         samples = self.trace[var_name]
         n_match = len(samples[(low < samples) * (samples < high)])
@@ -355,14 +360,14 @@ class BestResults(ABC):
 
 
 class BestResultsOne(BestResults):
-    """Results of a two-group analysis"""
+    """Results of a two-group analysis; subclass of :class:`BestResults`"""
 
     def __init__(self, model: BestModelOne, trace: MultiTrace):
         super().__init__(model, trace)
 
 
 class BestResultsTwo(BestResults):
-    """Results of a two-group analysis"""
+    """Results of a two-group analysis; subclass of :class:`BestResults`"""
 
     def __init__(self, model: BestModelTwo, trace: MultiTrace):
         super().__init__(model, trace)
@@ -444,13 +449,14 @@ def analyze_one(group_data,
     group_data : list of numbers, NumPy array, or Pandas Series.
         Data of the group to be analyzed.
     ref_val : float
-        The reference value to be compared against. Default: 0.
+        The reference value to be compared against. This affects the plots
+        and the effect size calculations. Default: 0.
     n_samples : int
         Number of samples *per chain* to be drawn for the analysis.
         (The number of chains depends on the number of CPU cores, but is
         at least 2.) Default: 2000.
     **kwargs
-        Keyword arguments are passed to :meth:`pymc3.sample`.
+        Keyword arguments are passed to ``pymc3.sample``.
         For example, number of tuning samples can be increased to 2000
         (from the default 1000) by::
 
@@ -460,8 +466,6 @@ def analyze_one(group_data,
     -------
     BestResultsOne
         An object that contains all the posterior samples from the model.
-        See the `PyMC3 documentation
-        <https://docs.pymc.io/api/inference.html#multitrace>`_ for details.
 
     Notes
     -----

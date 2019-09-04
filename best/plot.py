@@ -18,7 +18,6 @@ import numpy as np
 import matplotlib.lines as mpllines
 from matplotlib.transforms import blended_transform_factory
 from matplotlib.ticker import LogFormatter
-import pymc3 as pm
 import scipy.stats as st
 
 from .model import BestResults, BestResultsOne, BestResultsTwo
@@ -44,7 +43,8 @@ def plot_posterior(best_results: BestResults,
     best_results : BestResults
         The result of the analysis.
     var_name : string
-        The name of the variable to be plotted.
+        The name of the variable to be plotted. Available variable names are
+        described in the :ref:`sec-variables` section.
     ax : Matplotlib Axes, optional
         If not None, the Matplotlib Axes instance to be used.
         Default: create a new axes.
@@ -77,11 +77,12 @@ def plot_posterior(best_results: BestResults,
 
     Examples
     --------
-    To plot a histogram of the samples of the mean of the first group in green
-    (the hist_kwargs)
+    To plot a histogram of the samples of the mean of the first group in avocado green:
 
         >>> import matplotlib as plt
-        >>> ax = best.plot_posterior(best_out, 'Group 1 mean', color='green')
+        >>> ax = best.plot_posterior(best_out,
+        ...                          'Group 1 mean',
+        ...                          color='avocado')
         >>> plt.show()
     """
     samples = best_results.trace[var_name]
@@ -117,7 +118,7 @@ def plot_posterior(best_results: BestResults,
         ax.axvline(ref_val, linestyle=':')
 
     # plot HDI
-    hdi_min, hdi_max = pm.hpd(samples, alpha=0.05)
+    hdi_min, hdi_max = best_results.hpd(var_name, alpha=0.05)
 
     hdi_line, = ax.plot([hdi_min, hdi_max], [0, 0],
                         lw=5.0, color='k')
@@ -132,7 +133,6 @@ def plot_posterior(best_results: BestResults,
             horizontalalignment='center',
             verticalalignment='bottom',
             )
-
     ax.text((hdi_min + hdi_max) / 2, 0.14, '95% HDI',
             transform=trans,
             horizontalalignment='center',
@@ -159,12 +159,13 @@ def plot_normality_posterior(best_results, ax, bins, title):
     # TODO merge it into plot_posterior, with a log_x: bool = False parameter
     #  Then we could also center the "95% HPD" text on the log scale.
 
-    samples = best_results.trace['Normality']
+    var_name = 'Normality'
+    samples = best_results.trace[var_name]
     norm_bins = np.logspace(np.log10(best_results.model.nu_min),
-                            np.log10(pm.hpd(samples, alpha=DISPLAYED_ALPHA)[-1]),
+                            np.log10(best_results.hpd(var_name, DISPLAYED_ALPHA)[-1]),
                             num=bins + 1)
     plot_posterior(best_results,
-                   'Normality',
+                   var_name,
                    ax=ax,
                    bins=norm_bins,
                    title=title,
@@ -344,6 +345,10 @@ def plot_all_two(best_results: BestResultsTwo,
     plt.Figure
         The created figure. (The separate plots can be accessed via
         ``fig.axes``, where ``fig`` is the return value of this function.)
+
+    Notes
+    -----
+    :ref:`This section <sec-mean-mode>` explains when is the mean or the mode printed.
     """
     assert type(bins) is int, 'bins argument must be an integer.'
 
@@ -465,11 +470,9 @@ def plot_all_one(best_results: BestResultsOne,
         The number of bins to be used for the histograms.
         Default: 30.
     group_name : string, optional
-        If not None, group name to be used in the title, e.g. if
-         ``group_name`` is ``"eTRF day 5"`` then the plot for the mean is titled
-         “eTRF day 5 mean”.
-        If None, then group name is omitted from the titles, resulting in
-         e.g. “Mean”.
+        If not None, group name to be used in the title, e.g. if ``group_name`` is
+        ``"eTRF day 5"`` then the plot for the mean is titled “eTRF day 5 mean”.
+        If None, then group name is omitted from the titles, resulting in e.g. “Mean”.
         Default: None.
 
     Returns
@@ -477,6 +480,10 @@ def plot_all_one(best_results: BestResultsOne,
     plt.Figure
         The created figure. (The separate plots can be accessed via
         ``fig.axes``, where ``fig`` is the return value of this function.)
+
+    Notes
+    -----
+    :ref:`This section <sec-mean-mode>` explains when is the mean or the mode printed.
     """
     assert type(bins) is int, 'bins argument must be an integer.'
 
