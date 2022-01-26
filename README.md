@@ -1,6 +1,6 @@
 # Bayesian estimation for two groups
 
-**Update: This package has now been incorporated into PyMC. The PyMC developers maintain it. Please use it https://docs.pymc.io/notebooks/BEST.html. This repository is an archive of the original Python version which was used as the basis for incorporation into PyMC.**
+**Update: This package has now been incorporated into PyMC. The PyMC developers maintain it. Please use it https://docs.pymc.io/en/v3/pymc-examples/examples/case_studies/BEST.html. This repository is an archive of the original Python version which was used as the basis for incorporation into PyMC.**
 
 This Python package implements the software described in
 
